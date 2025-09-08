@@ -1,25 +1,21 @@
 import streamlit as st
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
 
-st.title("Hello Streamlit-er 👋")
-st.markdown(
-    """ 
-    This is a playground for you to try Streamlit and have fun. 
+# Eksempeldata
+data = {'x': [1, 2, 3, 4, 5], 'y': [10, 14, 12, 16, 18]}
+df = pd.DataFrame(data)
 
-    **There's :rainbow[so much] you can build!**
-    
-    We prepared a few examples for you to get started. Just 
-    click on the buttons above and discover what you can do 
-    with Streamlit. 
-    """
-)
+st.header("Min Seaborn-graf i Streamlit")
 
-with st.chat_message("user"):
-    st.write("Hello 👋")
+# 1. Lag en figur og akse med Matplotlib
+fig, ax = plt.subplots()
 
-prompt = st.chat_input("Say something")
-if prompt:
-    st.write(f"User has sent the following prompt: {prompt}")
+# 2. Bruk Seaborn til å plotte på den aksen
+sns.lineplot(data=df, x='x', y='y', ax=ax)
+ax.set_title("En enkel linjegraf")
 
-if st.button("Send balloons!"):
-    st.balloons()
+# 3. Vis figuren i Streamlit
+st.pyplot(fig)
