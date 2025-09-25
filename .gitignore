@@ -12,6 +12,6 @@ __pycache__/
 *.log
 
 lectures/
-00_ia/
+ia/
 
 *.in
