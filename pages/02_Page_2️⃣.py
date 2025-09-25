@@ -5,6 +5,7 @@ import os
 st.set_page_config(layout="wide")
 st.title("CA1 - Page 2")
 
+# ==== READING DATA ====
 st.cache_data(show_spinner=False) #using cache data to only read in the first time. Spinner false as it disappears fast
 def read_data(filepath):
     df = pd.read_csv(filepath)
@@ -14,6 +15,7 @@ def read_data(filepath):
 
 df = read_data("data/open-meteo-subset.csv") 
 
+# === CREATING TABLE
 fy,fm = df.sort_index().index[0].year, df.sort_index().index[0].month #extracting the first month from the data
 
 first_month = df.loc[(df.index.year == fy) & df.index.month == fm, :] #filtering only on the first month
