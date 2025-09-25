@@ -25,7 +25,7 @@ if plot_type == "line":
     months = list(range(months_select[0],months_select[1]+1))
     y = st.multiselect("Select columns to plot",options = df.columns)
     y = y if y else df.columns
-    date_agg = st.radio("Choose date aggregation",  options=["Year","Month","Week","Day"],index = 1,horizontal=True)
+    date_agg = st.radio("Choose date aggregation",  options=["Month","Week","Day"],index = 1,horizontal=True)
     #st.info(f'month : {months, months_select}, y : {y}, date_agg : {date_agg}')
     st.line_chart(df.loc[df.index.month.isin(months),y].resample(date_agg_map[date_agg]).mean()
                 )
