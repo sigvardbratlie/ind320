@@ -4,22 +4,24 @@ import pandas as pd
 st.set_page_config(layout="wide")
 st.title("CA1 - Page 3")
 
-
+# ==== READING DATA ====
 st.cache_data(show_spinner=False) #same as page 2
 def read_data(filepath):
     df = pd.read_csv(filepath)
     df["time"] = pd.to_datetime(df["time"])
     df = df.set_index("time")
     return df
-
 df = read_data("data/open-meteo-subset.csv")
+# === PREPARING DATA ===
 df = (df-df.mean())/df.std() #Normalize the data
 
+# === SETUP OPTIONS === 
 start_end = "E" #choosing either end or start with "E" or "S". Defualt "E", no option implemented
 date_agg_map = {"Year":f"Y{start_end}",f"Month":f"M{start_end}",f"Week":f"W",f"Day":f"D"} #a map for choosing the correct label from streamlit radio widget
 
 plot_type = st.selectbox("Choose plot type",options=["line","bar","hist"]) #selection for plot type as no specific type is specified in the task description.
 
+# === PLOTTING ===
 if plot_type == "line":
     months_select = st.select_slider("Select a subset of months to display",options = range(1,13), value=(1,12)) #creating the slider widget for selecting month range
     months = list(range(months_select[0],months_select[1]+1)) #adding one as python index is zero-based
