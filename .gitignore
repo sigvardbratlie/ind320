@@ -15,3 +15,5 @@ lectures/
 ia/
 
 *.in
+
+secrets.toml
