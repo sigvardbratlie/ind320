@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(layout="wide")
 st.title("CA1 - Page 3")
@@ -23,12 +24,23 @@ plot_type = st.selectbox("Choose plot type",options=["line","bar","hist"]) #sele
 
 # === PLOTTING ===
 if plot_type == "line":
-    months_select = st.select_slider("Select a subset of months to display",options = range(1,13), value=(1,12)) #creating the slider widget for selecting month range
-    months = list(range(months_select[0],months_select[1]+1)) #adding one as python index is zero-based
-    y = st.multiselect("Select columns to plot",options = df.columns) #Selection of y
-    y = y if y else df.columns #ensuring that y is not None
     date_agg = st.radio("Choose date aggregation",  options=["Month","Week","Day"],index = 1,horizontal=True) #adding data aggregation option
-    st.line_chart(df.loc[df.index.month.isin(months),y].resample(date_agg_map[date_agg]).mean()) #creating the line chart
+    df_line = df.resample(date_agg_map[date_agg]).mean()
+    #print(df_line.index.tolist(), type(df_line.index.tolist()[0]))
+    opt = [f"{year}-{month}" for year,month in zip(df_line.index.year,df_line.index.month)] #create all possible options
+    sel = st.select_slider("Select a subset of months to display",options = opt, value=(opt[0],opt[-1])) #create slider
+    if sel:
+        #extracting the range
+        min,max = sel[0],sel[1]
+        (min_year),(min_month) = min.split("-")
+        (max_year),(max_month) = max.split("-")
+
+        y = st.multiselect("Select columns to plot",options = df.columns) #Selection of y
+        y = y if y else df.columns #ensuring that y is not None
+        st.line_chart(df.loc[(df.index > datetime(year = int(min_year),month = int(min_month),day = 1))
+                             & (df.index < datetime(year = int(max_year),month = int(max_month),day = 1)),
+                             y]
+                      .resample(date_agg_map[date_agg]).mean()) #creating the line chart
                 
     
 elif plot_type == "bar":
