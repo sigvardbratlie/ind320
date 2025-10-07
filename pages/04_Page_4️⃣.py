@@ -6,7 +6,7 @@ import plotly.express as px
 import calendar
 
 st.set_page_config(layout="wide")
-
+st.title("Page 4")
 
 # Initialize connection.
 # Uses st.cache_resource to only run once.

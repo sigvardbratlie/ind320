@@ -4,4 +4,4 @@ import os
 import pymongo
 
 st.set_page_config(layout="wide")
-st.title("CA1 - Page 1")
+st.title("Page 1")
