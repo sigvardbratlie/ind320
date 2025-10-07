@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import pymongo
 import plotly.express as px
+import calendar
 
 st.set_page_config(layout="wide")
 
@@ -87,32 +88,17 @@ with cols[1]:
     #month slider. Reuse from CA1
     min_date = data_line["starttime"].min().date()
     max_date = data_line["starttime"].max().date()
-    opt = []
-    for year in range(min_date.year, max_date.year+1):
-        for month in range(1,13):
-            opt.append(f"{year}-{month:02d}")
-    sel = st.select_slider("Select a subset of months to display",
-                           options = opt, value=(opt[0],opt[-1])) #create slider
-    if sel:
-        #extracting the range
-        min,max = sel[0],sel[1]
-        min_year,min_month = min.split("-")
-        max_year,max_month = max.split("-")
+    
+    
+    month = st.selectbox("Select Month to Display",
+                            options = calendar.month_name[1:],
+                            index=0,
+                            label_visibility="collapsed"
+    ) #widget for selecting month
 
-        data_line = data_line[(data_line["starttime"] > pd.to_datetime(f"{min_year}-{min_month}-01")) &
-                                (data_line["starttime"] < pd.to_datetime(f"{max_year}-{max_month}-01"))] #filter on selected date range
-
-
-    # dates = st.date_input(
-    #     "Select Date Range",
-    #     value=(data_line["starttime"].min(), data_line["starttime"].max()),
-    #     min_value=data_line["starttime"].min(),
-    #     max_value=data_line["starttime"].max()
-    # ) #date input widget
-    # if len(dates) == 2:
-    #     start_date, end_date = dates
-    #     data_line = data_line[(data_line["starttime"] >= pd.to_datetime(start_date)) & 
-    #                           (data_line["starttime"] <= pd.to_datetime(end_date))] #filter on selected date range
+    if month:
+        month = list(calendar.month_name).index(month) #get month number from name
+        data_line = data_line[data_line["starttime"].dt.month == month] #filter on selected months
         
     fig2 = px.line(
         data_line,
@@ -123,7 +109,7 @@ with cols[1]:
         labels={"starttime": "Date", "smooth": "Quantity (kWh)", "productiongroup": "Production Group"}
     ) #create line chart
 
-    st.plotly_chart(fig2)
+    st.plotly_chart(fig2) #display line chart
 
 with st.expander("Data sources"):
     st.write(f'Elhub API https://api.elhub.no')
