@@ -26,14 +26,13 @@ except Exception as e:
 # Uses st.cache_data to only rerun when the query changes or after 10 min.
 @st.cache_data(ttl=600)
 def get_data():
-    db = client.elhub
+    db = client.elhub   
     items = db.prod_data.find({})
     items = list(items)  # make hashable for st.cache_data
-    return items
+    data = pd.DataFrame(items)
+    return data
 
-items = get_data()
-data = pd.DataFrame(items)
-
+data = get_data()
 
 st.markdown("# ELECTRICITY PRODUCTION DATA")
 st.write("---")
