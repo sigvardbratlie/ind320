@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 st.set_page_config(layout="wide")
-st.title("CA1 - Page 3")
+st.title("Page 3")
 
 # ==== READING DATA ====
 st.cache_data(show_spinner=False) #same as page 2

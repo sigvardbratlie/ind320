@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 st.set_page_config(layout="wide")
-st.title("CA1 - Page 2")
+st.title("Page 2")
 
 # ==== READING DATA ====
 st.cache_data(show_spinner=False) #using cache data to only read in the first time. Spinner false as it disappears fast
