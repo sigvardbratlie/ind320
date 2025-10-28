@@ -17,3 +17,5 @@ ia/
 *.in
 
 *secrets.toml
+
+.devcontainer/
