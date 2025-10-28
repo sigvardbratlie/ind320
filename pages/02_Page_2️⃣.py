@@ -1,48 +1,57 @@
 import streamlit as st
 import pandas as pd
-import os
+from datetime import datetime
 
 st.set_page_config(layout="wide")
-st.title("Page 2")
+st.title("Page 3")
 
 # ==== READING DATA ====
-st.cache_data(show_spinner=False) #using cache data to only read in the first time. Spinner false as it disappears fast
+st.cache_data(show_spinner=False) #same as page 2
 def read_data(filepath):
     df = pd.read_csv(filepath)
-    df["time"] = pd.to_datetime(df["time"]) #setting date feature to dtype datetime
-    df = df.set_index("time") #Setting date feature as index
+    df["time"] = pd.to_datetime(df["time"])
+    df = df.set_index("time")
     return df
+df = read_data("data/open-meteo-subset.csv")
+# === PREPARING DATA ===
+df = (df-df.mean())/df.std() #Normalize the data
 
-df = read_data("data/open-meteo-subset.csv") 
+# === SETUP OPTIONS === 
+start_end = "E" #choosing either end or start with "E" or "S". Defualt "E", no option implemented
+date_agg_map = {"Year":f"Y{start_end}",f"Month":f"M{start_end}",f"Week":f"W",f"Day":f"D"} #a map for choosing the correct label from streamlit radio widget
 
-# === CREATING TABLE
-fy,fm = df.sort_index().index[0].year, df.sort_index().index[0].month #extracting the first month from the data
+plot_type = st.selectbox("Choose plot type",options=["line","bar","hist"]) #selection for plot type as no specific type is specified in the task description.
 
-first_month = df.loc[(df.index.year == fy) & df.index.month == fm, :] #filtering only on the first month
-first_month = (first_month - first_month.mean()) / first_month.std() #normalize for comparison
+# === PLOTTING ===
+if plot_type == "line":
+    date_agg = st.radio("Choose date aggregation",  options=["Month","Week","Day"],index = 1,horizontal=True) #adding data aggregation option
+    df_line = df.resample(date_agg_map[date_agg]).mean()
+    #print(df_line.index.tolist(), type(df_line.index.tolist()[0]))
+    opt = [f"{year}-{month}" for year,month in zip(df_line.index.year,df_line.index.month)] #create all possible options
+    sel = st.select_slider("Select a subset of months to display",options = opt, value=(opt[0],opt[-1])) #create slider
+    if sel:
+        #extracting the range
+        min,max = sel[0],sel[1]
+        (min_year),(min_month) = min.split("-")
+        (max_year),(max_month) = max.split("-")
 
-data_for_editor = []
-for col in first_month.columns:
-    data_for_editor.append({
-        "column": col,
-        "data": first_month[col].tolist(), 
-    }) #creating the data container for LineChartColumn
+        y = st.multiselect("Select columns to plot",options = df.columns) #Selection of y
+        y = y if y else df.columns #ensuring that y is not None
+        st.line_chart(df.loc[(df.index > datetime(year = int(min_year),month = int(min_month),day = 1))
+                             & (df.index < datetime(year = int(max_year),month = int(max_month),day = 1)),
+                             y]
+                      .resample(date_agg_map[date_agg]).mean()) #creating the line chart
+                
+    
+elif plot_type == "bar":
+    x = st.selectbox("Select which column to use as x-axis", options=df.columns) #selecting values for x
+    x = x #if x else df.columns[0]
+    y = st.multiselect("Select columns to plot",options = df.columns) #selecting values for y
+    y = y if y else df.columns.tolist() #ensuring that y is not None
+    st.bar_chart(data = df, x = x, y = y) #creating the bar chart
 
-st.data_editor(
-    data_for_editor,
-    column_config={
-        "column": st.column_config.TextColumn(
-            "Måling (Enhet)",
-            width="medium",
-        ),
-        "data": st.column_config.LineChartColumn(
-           "data",
-           width="large",
-           help="",
-           y_min=first_month.min().min(),
-           y_max=first_month.max().max()
-        ),
-    },
-    use_container_width=True,
-    hide_index=True
-) #Creating the widget LineChartColumn showing data for the first month
+elif plot_type == "hist":
+    x = st.selectbox("Select which column to use as x-axis", options=df.columns) #selecting values for x
+    x = x if x else df.columns[0] #ensuring x is not None
+    data = df.value_counts(x) #mk data
+    st.bar_chart(data) #plot data

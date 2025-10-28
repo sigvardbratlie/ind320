@@ -1,57 +1,114 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import os
+import pymongo
+import plotly.express as px
+import calendar
 
 st.set_page_config(layout="wide")
-st.title("Page 3")
+st.title("Page 4")
 
-# ==== READING DATA ====
-st.cache_data(show_spinner=False) #same as page 2
-def read_data(filepath):
-    df = pd.read_csv(filepath)
-    df["time"] = pd.to_datetime(df["time"])
-    df = df.set_index("time")
-    return df
-df = read_data("data/open-meteo-subset.csv")
-# === PREPARING DATA ===
-df = (df-df.mean())/df.std() #Normalize the data
+# Initialize connection.
+# Uses st.cache_resource to only run once.
+@st.cache_resource
+def init_connection():
+    return pymongo.MongoClient(st.secrets["mongo"]["uri"])
 
-# === SETUP OPTIONS === 
-start_end = "E" #choosing either end or start with "E" or "S". Defualt "E", no option implemented
-date_agg_map = {"Year":f"Y{start_end}",f"Month":f"M{start_end}",f"Week":f"W",f"Day":f"D"} #a map for choosing the correct label from streamlit radio widget
+try:
+    client = init_connection()
+    client.admin.command('ping')
+    st.sidebar.success("🔗 Connected to MongoDB")
+except Exception as e:
+    st.sidebar.error(f"Error connecting to MongoDB: {e}")
+    st.stop()
 
-plot_type = st.selectbox("Choose plot type",options=["line","bar","hist"]) #selection for plot type as no specific type is specified in the task description.
+# Pull data from the collection.
+# Uses st.cache_data to only rerun when the query changes or after 10 min.
+@st.cache_data(ttl=600)
+def get_data():
+    db = client.elhub   
+    items = db.prod_data.find({})
+    items = list(items)  # make hashable for st.cache_data
+    data = pd.DataFrame(items)
+    return data
 
-# === PLOTTING ===
-if plot_type == "line":
-    date_agg = st.radio("Choose date aggregation",  options=["Month","Week","Day"],index = 1,horizontal=True) #adding data aggregation option
-    df_line = df.resample(date_agg_map[date_agg]).mean()
-    #print(df_line.index.tolist(), type(df_line.index.tolist()[0]))
-    opt = [f"{year}-{month}" for year,month in zip(df_line.index.year,df_line.index.month)] #create all possible options
-    sel = st.select_slider("Select a subset of months to display",options = opt, value=(opt[0],opt[-1])) #create slider
-    if sel:
-        #extracting the range
-        min,max = sel[0],sel[1]
-        (min_year),(min_month) = min.split("-")
-        (max_year),(max_month) = max.split("-")
+data = get_data()
 
-        y = st.multiselect("Select columns to plot",options = df.columns) #Selection of y
-        y = y if y else df.columns #ensuring that y is not None
-        st.line_chart(df.loc[(df.index > datetime(year = int(min_year),month = int(min_month),day = 1))
-                             & (df.index < datetime(year = int(max_year),month = int(max_month),day = 1)),
-                             y]
-                      .resample(date_agg_map[date_agg]).mean()) #creating the line chart
-                
+st.markdown("# ELECTRICITY PRODUCTION DATA")
+st.write("---")
+
+cols = st.columns(2) #split into two columns
+with cols[0]:
+    st.markdown("## 🔋 Production by Group")
+
+    price_area = st.radio(
+        "Select Price Area",
+        options=data["pricearea"].sort_values().unique().tolist(),
+        horizontal=True,
+        index=1,
+        label_visibility="collapsed"
+    )
+
+    if price_area:
+        data_pie = data[data["pricearea"] == price_area] #select price area NO2
+        data_pie = data_pie.groupby("productiongroup")["quantitykwh"].sum().reset_index() #create data
+
+        fig = px.pie(
+            data_pie,
+            values="quantitykwh",
+            names="productiongroup",
+            title=f"Total Production by Group in {price_area}",
+            hole=0.4
+        ) #create pie chart
+
+        st.plotly_chart(fig)
+
+with cols[1]:
+    st.markdown("## 📈 Production Over Time")
+
+    if price_area:
+        data_pa = data[data["pricearea"] == price_area] #continue with selected price area
     
-elif plot_type == "bar":
-    x = st.selectbox("Select which column to use as x-axis", options=df.columns) #selecting values for x
-    x = x #if x else df.columns[0]
-    y = st.multiselect("Select columns to plot",options = df.columns) #selecting values for y
-    y = y if y else df.columns.tolist() #ensuring that y is not None
-    st.bar_chart(data = df, x = x, y = y) #creating the bar chart
+    prod_group = st.pills(
+        "Select Production Group",
+        options=data["productiongroup"].sort_values().unique().tolist(),
+        selection_mode= "multi"
+    ) #widget for selecting production groups
+    
+    data_line = data_pa.groupby(["productiongroup",
+                            pd.Grouper(key="starttime", 
+                                    freq="D")])["quantitykwh"].sum().reset_index() #Aggregatate data for line plot. Same aggregation as in notebook
+    
+    data_line["smooth"] = data_line.groupby("productiongroup")["quantitykwh"]\
+            .transform(lambda x: x.rolling(window=5, min_periods=1).mean()) #moving average with a window of 5 days
+    if prod_group:
+        data_line = data_line[data_line["productiongroup"].isin(prod_group)] #filter on selected production groups. default all groups
 
-elif plot_type == "hist":
-    x = st.selectbox("Select which column to use as x-axis", options=df.columns) #selecting values for x
-    x = x if x else df.columns[0] #ensuring x is not None
-    data = df.value_counts(x) #mk data
-    st.bar_chart(data) #plot data
+    #month slider. Reuse from CA1
+    min_date = data_line["starttime"].min().date()
+    max_date = data_line["starttime"].max().date()
+    
+    
+    month = st.selectbox("Select Month to Display",
+                            options = calendar.month_name[1:],
+                            index=0,
+                            label_visibility="collapsed"
+    ) #widget for selecting month
+
+    if month:
+        month = list(calendar.month_name).index(month) #get month number from name
+        data_line = data_line[data_line["starttime"].dt.month == month] #filter on selected months
+        
+    fig2 = px.line(
+        data_line,
+        x="starttime",
+        y="smooth",
+        color="productiongroup",
+        title="Daily Production (5-day MA)",
+        labels={"starttime": "Date", "smooth": "Quantity (kWh)", "productiongroup": "Production Group"}
+    ) #create line chart
+
+    st.plotly_chart(fig2) #display line chart
+
+with st.expander("Data sources"):
+    st.write(f'Elhub API https://api.elhub.no')
