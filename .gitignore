@@ -16,4 +16,4 @@ ia/
 
 *.in
 
-secrets.toml
+*secrets.toml
