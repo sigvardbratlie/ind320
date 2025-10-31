@@ -3,15 +3,21 @@ import pandas as pd
 from datetime import datetime
 import os
 import requests
-from utilities import get_weather,extract_coordinates
+from utilities import get_weather,extract_coordinates,init
 
+
+# =========================================
+#          DEFINE FUNCTIONS & SETUP
+# =========================================
+init()
 st.set_page_config(layout="wide")
-st.title("Weather Data")
+st.title("Weather Data 🌡️☁️")
 
-
+# =================================
+#           DATA LOADING
+# =================================
 lat,lon = extract_coordinates("Bergen")
 data = get_weather(lat, lon, 2019)
-
 df = pd.DataFrame(data.get("hourly"))
 df["time"] = pd.to_datetime(df["time"])
 df.set_index("time", inplace=True)

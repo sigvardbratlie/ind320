@@ -4,39 +4,23 @@ import os
 import pymongo
 import plotly.express as px
 import calendar
+from utilities import init, check_mongodb_connection,get_data
 
 
-# Initialize connection.
-# Uses st.cache_resource to only run once.
-@st.cache_resource
-def init_connection():
-    return pymongo.MongoClient(st.secrets["mongo"]["uri"])
-
-try:
-    client = init_connection()
-    client.admin.command('ping')
-    st.sidebar.success("🔗 Connected to MongoDB")
-except Exception as e:
-    st.sidebar.error(f"Error connecting to MongoDB: {e}")
-    st.stop()
-
-# Pull data from the collection.
-# Uses st.cache_data to only rerun when the query changes or after 10 min.
-@st.cache_data(ttl=600)
-def get_data():
-    db = client.elhub   
-    items = db.prod_data.find({})
-    items = list(items)  # make hashable for st.cache_data
-    data = pd.DataFrame(items)
-    return data
-
-
+# =========================================
+#          FUNCTION DEFINITIONS & SETUP
+# =========================================
+init()
+check_mongodb_connection()
 st.set_page_config(layout="wide")
-st.title("Elhub")
+st.title("Elhub 🔋⚡️")
 
-data = get_data()
+# =================================
+#           DATA LOADING
+# =================================
+data = get_data(st.session_state["client"])
 
-st.markdown("### ELECTRICITY PRODUCTION DATA")
+#st.markdown("### ELECTRICITY PRODUCTION DATA")
 st.write("---")
 
 cols = st.columns(2) #split into two columns

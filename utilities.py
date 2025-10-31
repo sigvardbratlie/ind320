@@ -11,13 +11,14 @@ load_dotenv()
 def init_connection():
     return pymongo.MongoClient(st.secrets["mongo"]["uri"])
 
-try:
-    _client = init_connection()
-    _client.admin.command('ping')
-    st.sidebar.success("🔗 Connected to MongoDB")
-except Exception as e:
-    st.sidebar.error(f"Error connecting to MongoDB: {e}")
-    st.stop()
+@st.cache_data(ttl=600)
+def check_mongodb_connection():
+    try:
+        st.session_state["client"].admin.command('ping')
+        st.sidebar.success("🔗 Connected to MongoDB")
+    except Exception as e:
+        st.sidebar.error(f"Error connecting to MongoDB: {e}")
+        st.stop()
 
 # Pull data from the collection.
 # Uses st.cache_data to only rerun when the query changes or after 10 min.
@@ -65,3 +66,8 @@ def extract_coordinates(city: str):
     res = geocode(city).get("results")[0]
     lat, lon = res.get("latitude"), res.get("longitude")
     return lat, lon
+
+
+def init():
+    st.session_state['client'] = init_connection()
+    st.session_state.setdefault("price_area", "NO2")

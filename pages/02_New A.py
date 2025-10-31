@@ -6,12 +6,11 @@ from statsmodels.tsa.seasonal import STL
 from typing import Literal
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utilities import get_data, _client
+from utilities import get_data,init, check_mongodb_connection
 
 # =========================================
-#          DEFINE FUNCTIONS & SETUP
+#          FUNCTION DEFINITIONS & SETUP
 # =========================================
-
 @st.cache_data(ttl=3600)
 def loess(data : pd.DataFrame, 
           price_area : Literal["NO1","NO2","NO3","NO5","NO5"] = "NO2", 
@@ -88,12 +87,14 @@ def spectrogram(data : pd.DataFrame,
     )
     return fig
 
+init()
+check_mongodb_connection()
 st.set_page_config(layout="wide")
-st.title("STL Decomposition and Spectrogram")
-data = get_data(_client)
-
-if "price_area" not in st.session_state:
-    st.session_state['price_area'] = "NO2"
+st.title("STL Decomposition and Spectrogram 🔋⚡️")
+# =================================
+#           DATA LOADING
+# =================================
+data = get_data(st.session_state["client"]) 
 
 
 # =============================
@@ -121,6 +122,7 @@ with select_cols[1]:
         horizontal=True,
         index=pa_idx,
     ) #widget for selecting price area
+    
     st.session_state['price_area'] = price_area #store selection in session state
 
 
@@ -167,7 +169,7 @@ with tabs[0]:
     st.plotly_chart(fig)
 
 with tabs[1]:
-    st.subheader("Spectrogram of Residuals")
+    st.subheader("Spectrogram")
 
     spect_selections = st.columns(2)
     with spect_selections[0]:
