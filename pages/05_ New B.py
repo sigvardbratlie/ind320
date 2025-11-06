@@ -35,13 +35,6 @@ def calc_highpass(data, cutoff: int):
     satv[f<cutoff] = 0 #high pass filter
     return idct(satv, norm="forward")
 
-def calc_lowpass(data, cutoff: int):
-    fourier = dct(data, norm="forward")
-    #Plot the temperature as a function of time
-    low_pass = fourier.copy()
-    low_pass[cutoff:] = 0 #low pass filter
-    return idct(low_pass, norm="forward")
-
 @st.cache_data(ttl=600)
 def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float = 2.0):
 
@@ -53,9 +46,11 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
     mean,std = satv_reconstructed.mean(), satv_reconstructed.std()    
 
     outliers = np.where((satv_reconstructed > mean + nstd*std) | (satv_reconstructed < mean - nstd*std))
+    n_outliers = len(outliers[0])
     df_outliers = df.iloc[outliers]
 
-    low_pass_reconstructed = calc_lowpass(temp, cutoff)
+    low_pass_reconstructed = temp - satv_reconstructed
+    st.info(f"Number of outliers detected: {n_outliers}")
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df.index, y=df[feature], mode='lines', name='Original'))
@@ -76,8 +71,10 @@ with st.sidebar:
 # =================================
 #           DATA LOADING
 # =================================
-lat,lon = extract_coordinates("Bergen")
-data = get_weather(lat, lon, 2019)
+city = st.selectbox("Select City", options=["Bergen", "Oslo", "Trondheim", "Tromsø"], index=0)
+year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)
+lat,lon = extract_coordinates(city)
+data = get_weather(lat, lon, year)
 df = pd.DataFrame(data.get("hourly"))
 df["time"] = pd.to_datetime(df["time"])
 df.set_index("time", inplace=True)
