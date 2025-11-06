@@ -67,10 +67,10 @@ with cols[1]:
         options=pd_options,
         selection_mode= "multi"
     ) #widget for selecting production groups
-    
+
     data_line = data_pa.groupby(["productiongroup",
-                            pd.Grouper(key="starttime", 
-                                    freq="D")])["quantitykwh"].sum().reset_index() #Aggregatate data for line plot. Same aggregation as in notebook
+                            pd.Grouper(level = "starttime", freq="D")]
+                                    )["quantitykwh"].sum().reset_index() #Aggregatate data for line plot. Same aggregation as in notebook
     
     data_line["smooth"] = data_line.groupby("productiongroup")["quantitykwh"]\
             .transform(lambda x: x.rolling(window=5, min_periods=1).mean()) #moving average with a window of 5 days
