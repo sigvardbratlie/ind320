@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
-import requests
-from utilities import get_weather,extract_coordinates,init
-
+from utilities import get_weather,extract_coordinates,init, weather_sidebar
+import plotly.graph_objects as go
+import plotly.express as px
 
 # =========================================
 #          DEFINE FUNCTIONS & SETUP
@@ -12,24 +11,32 @@ from utilities import get_weather,extract_coordinates,init
 init()
 st.set_page_config(layout="wide")
 st.title("Weather Data 🌡️☁️")
+city, year, price_area = weather_sidebar()
 
 # =================================
 #           DATA LOADING
 # =================================
-lat,lon = extract_coordinates("Bergen")
-data = get_weather(lat, lon, 2019)
+lat,lon = extract_coordinates(city)
+data = get_weather(lat, lon, year)
 df = pd.DataFrame(data.get("hourly"))
 df["time"] = pd.to_datetime(df["time"])
 df.set_index("time", inplace=True)
 
-# === PREPARING DATA ===
-df = (df-df.mean())/df.std() #Normalize the data
+
 
 # === SETUP OPTIONS === 
 start_end = "E" #choosing either end or start with "E" or "S". Defualt "E", no option implemented
 date_agg_map = {"Year":f"Y{start_end}",f"Month":f"M{start_end}",f"Week":f"W",f"Day":f"D"} #a map for choosing the correct label from streamlit radio widget
 
-plot_type = st.selectbox("Choose plot type",options=["line","bar","hist"]) #selection for plot type as no specific type is specified in the task description.
+cols = st.columns(2)
+with cols[0]:
+    plot_type = st.radio("Choose plot type",options=["line","bar","hist"],horizontal=True) #selection for plot type as no specific type is specified in the task description.
+with cols[1]:
+    norm = st.toggle("Normalize data",value=False) #toggle for normalization
+
+if norm:
+    # === PREPARING DATA ===
+    df = (df-df.mean())/df.std() #Normalize the data
 
 # === PLOTTING ===
 if plot_type == "line":
@@ -46,21 +53,30 @@ if plot_type == "line":
 
         y = st.multiselect("Select columns to plot",options = df.columns) #Selection of y
         y = y if y else df.columns #ensuring that y is not None
-        st.line_chart(df.loc[(df.index > datetime(year = int(min_year),month = int(min_month),day = 1))
+
+        line_to_plot = df.loc[(df.index > datetime(year = int(min_year),month = int(min_month),day = 1))
                              & (df.index < datetime(year = int(max_year),month = int(max_month),day = 1)),
-                             y]
-                      .resample(date_agg_map[date_agg]).mean()) #creating the line chart
-                
-    
+                             y].resample(date_agg_map[date_agg]).mean()
+                      
+        
+        fig = px.line(line_to_plot, x=line_to_plot.index, y=y) #creating line plot
+
+        st.plotly_chart(fig) #creating the line chart
+
+
 elif plot_type == "bar":
     x = st.selectbox("Select which column to use as x-axis", options=df.columns) #selecting values for x
-    x = x #if x else df.columns[0]
     y = st.multiselect("Select columns to plot",options = df.columns) #selecting values for y
     y = y if y else df.columns.tolist() #ensuring that y is not None
-    st.bar_chart(data = df, x = x, y = y) #creating the bar chart
+
+    #fig.add_trace(go.Bar(x=df[x], y=df[y[0]], name=y[0])) #adding bar trace
+    #fig.update_layout(barmode='group')
+    fig = px.bar(df, x=x, y=y, barmode='group') #create bar plot
+    st.plotly_chart(fig) #plot data
+
 
 elif plot_type == "hist":
     x = st.selectbox("Select which column to use as x-axis", options=df.columns) #selecting values for x
     x = x if x else df.columns[0] #ensuring x is not None
-    data = df.value_counts(x) #mk data
-    st.bar_chart(data) #plot data
+    fig = px.histogram(df, x=x, nbins=100) #create histogram
+    st.plotly_chart(fig) #plot data

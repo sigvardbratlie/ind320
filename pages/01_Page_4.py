@@ -4,7 +4,7 @@ import os
 import pymongo
 import plotly.express as px
 import calendar
-from utilities import init, check_mongodb_connection,get_data
+from utilities import init, check_mongodb_connection,get_data,el_sidebar
 
 
 # =========================================
@@ -14,7 +14,7 @@ init()
 check_mongodb_connection()
 st.set_page_config(layout="wide")
 st.title("Elhub 🔋⚡️")
-
+year, price_area, production_group = el_sidebar()
 # =================================
 #           DATA LOADING
 # =================================
@@ -26,20 +26,6 @@ st.write("---")
 cols = st.columns(2) #split into two columns
 with cols[0]:
     st.markdown("## 🔋 Production by Group")
-
-    #retrieve previous selection from session state
-    price_area = st.session_state.get('price_area', 'NO2') 
-    pa_options = data["pricearea"].sort_values().unique().tolist()
-    pa_idx = pa_options.index(price_area) if price_area in pa_options else 1
-
-    price_area = st.radio(
-        "Select Price Area",
-        options=pa_options,
-        horizontal=True,
-        index=pa_idx,
-        label_visibility="collapsed"
-    )
-
     if price_area:
         st.session_state['price_area'] = price_area #store selection in session state
         data_pie = data[data["pricearea"] == price_area] #select price area NO2
@@ -59,14 +45,6 @@ with cols[1]:
     st.markdown("## 📈 Production Over Time")
     if price_area:
         data_pa = data[data["pricearea"] == price_area] #continue with selected price area
-    
-    pd_options = data["productiongroup"].sort_values().unique().tolist()
-    
-    prod_group = st.pills(
-        "Select Production Group",
-        options=pd_options,
-        selection_mode= "multi"
-    ) #widget for selecting production groups
 
     data_line = data_pa.groupby(["productiongroup",
                             pd.Grouper(level = "starttime", freq="D")]
@@ -74,8 +52,10 @@ with cols[1]:
     
     data_line["smooth"] = data_line.groupby("productiongroup")["quantitykwh"]\
             .transform(lambda x: x.rolling(window=5, min_periods=1).mean()) #moving average with a window of 5 days
-    if prod_group:
-        data_line = data_line[data_line["productiongroup"].isin(prod_group)] #filter on selected production groups. default all groups
+    if production_group:
+        data_line = data_line[data_line["productiongroup"] == production_group] #filter on selected production groups. default all groups
+
+    
 
     #month slider. Reuse from CA1
     min_date = data_line["starttime"].min().date()

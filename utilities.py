@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import requests
 import os
+import datetime
 load_dotenv()
 
 
@@ -71,3 +72,46 @@ def extract_coordinates(city: str):
 def init():
     st.session_state['client'] = init_connection()
     st.session_state.setdefault("price_area", "NO2")
+    st.session_state.setdefault("start_date", datetime.date(2021,1,1))
+    st.session_state.setdefault("end_date", datetime.date(2024,12,31))
+    st.session_state.setdefault("production_group", "hydro")
+
+
+def sidebar_setup(infotxt : str,start_date : str = "2021-01-01", end_date : str = "2024-12-31"):
+    with st.sidebar:
+        st.info(infotxt)
+        dates = st.date_input("Select Date Range",
+                              value=(start_date, end_date),
+                              min_value=start_date,
+                              max_value=end_date,
+                              )
+        price_area_options = ["NO1","NO2","NO3","NO4","NO5"]
+        price_area = st.radio("Select Price Area", options=price_area_options,index = price_area_options.index(st.session_state.price_area.strip()),
+                              horizontal=True,) 
+        st.session_state.price_area = price_area
+
+        if len(dates) != 2:
+            st.error("Please select a start and end date.")
+        if dates[0] > dates[1]:
+            st.error("Start date must be before end date.")
+        else:  
+            st.session_state.start_date = dates[0]
+            st.session_state.end_date = dates[1]
+        
+
+def weather_sidebar():
+    with st.sidebar:
+        st.info("Weather data")
+        city = st.selectbox("Select City", options=["Bergen", "Oslo", "Trondheim", "Tromsø"], index=0)
+        year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)
+        st.session_state.city = city
+        st.session_state.year = year
+
+def el_sidebar():
+    with st.sidebar:
+        st.info("Electricity data")
+        year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)
+        prod_group = st.radio("Select Production Group",
+            options=["hydro","wind","solar","thermal","other"],index=0,horizontal=True,) #widget for selecting production groups
+        st.session_state.year = year
+        st.session_state.production_group = prod_group

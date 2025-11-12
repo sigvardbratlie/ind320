@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utilities import get_weather,extract_coordinates,init
+from utilities import get_weather,extract_coordinates,init,weather_sidebar
 import plotly.graph_objects as go
 import numpy as np
 from scipy.fft import dct, idct
@@ -65,14 +65,12 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
 init() #init default states and connections
 st.set_page_config(layout="wide")
 st.title("Outlier Detection and LOF analysis 🌡️☁️")
-with st.sidebar:
-    st.info("Weather data")
+city, year, price_area = weather_sidebar()
 
 # =================================
 #           DATA LOADING
 # =================================
-city = st.selectbox("Select City", options=["Bergen", "Oslo", "Trondheim", "Tromsø"], index=0)
-year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)
+
 lat,lon = extract_coordinates(city)
 data = get_weather(lat, lon, year)
 df = pd.DataFrame(data.get("hourly"))

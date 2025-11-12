@@ -6,7 +6,7 @@ from statsmodels.tsa.seasonal import STL
 from typing import Literal
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utilities import get_data,init, check_mongodb_connection
+from utilities import get_data,init, check_mongodb_connection,el_sidebar
 
 # =========================================
 #          FUNCTION DEFINITIONS & SETUP
@@ -95,35 +95,10 @@ st.title("STL Decomposition and Spectrogram 🔋⚡️")
 #           DATA LOADING
 # =================================
 data = get_data(st.session_state["client"]) 
+year, price_area, production_group = el_sidebar()
 
-
-# =============================
-#   SELECTION WIDGETS
-# =============================
-select_cols = st.columns(2)
-with select_cols[0]:
-    pd_options = data["productiongroup"].sort_values().unique().tolist()
-    
-    prod_group = st.radio(
-        "Select Production Group",
-        options=pd_options,
-        index=0,
-        horizontal=True,
-    ) #widget for selecting production groups
-    production_group = prod_group
-with select_cols[1]:
-    price_area = st.session_state.get('price_area', 'NO2') 
-    pa_options = data["pricearea"].sort_values().unique().tolist()
-    pa_idx = pa_options.index(price_area) if price_area in pa_options else 1
-
-    price_area = st.radio(
-        "Select Price Area",
-        options=pa_options,
-        horizontal=True,
-        index=pa_idx,
-    ) #widget for selecting price area
-    
-    st.session_state['price_area'] = price_area #store selection in session state
+st.session_state['price_area'] = price_area #store selection in session state
+st.session_state['production_group'] = production_group #store selection in session state
 
 
 #===========================================
