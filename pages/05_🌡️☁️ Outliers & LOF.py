@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utilities import get_weather_data,extract_coordinates,init,weather_sidebar,sidebar_setup
+from utilities import get_weather_data,extract_coordinates,init,sidebar_setup
 import plotly.graph_objects as go
 import numpy as np
 from scipy.fft import dct, idct
@@ -66,14 +66,16 @@ init() #init default states and connections
 st.set_page_config(layout="wide")
 st.title("Outlier Detection and LOF analysis 🌡️☁️")
 sidebar_setup("weather data analysis")
-weather_sidebar()
+
+coordinates = st.session_state.get("location",{}).get("coordinates", None)
+city = st.session_state.get("location",{}).get("city", None)
+price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 
 # =================================
 #           DATA LOADING
 # =================================
 
-lat,lon = extract_coordinates(st.session_state.city)
-data = get_weather_data(lat, lon, dates = st.session_state.dates)
+data = get_weather_data(coordinates[0], coordinates[1], dates = st.session_state.dates)
 df = pd.DataFrame(data.get("hourly"))
 df["time"] = pd.to_datetime(df["time"])
 df.set_index("time", inplace=True)

@@ -34,6 +34,9 @@ Assumptions:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+import plotly.graph_objects as go
+import streamlit as st
 
 def compute_Qupot(hourly_wind_speeds, dt=3600):
     """
@@ -133,9 +136,9 @@ def compute_yearly_results(df, T, F, theta):
         # Calculate hourly Swe: precipitation counts when temperature < +1°C.
         df_season = df_season.copy()  # avoid SettingWithCopyWarning
         df_season['Swe_hourly'] = df_season.apply(
-            lambda row: row['precipitation (mm)'] if row['temperature_2m (°C)'] < 1 else 0, axis=1)
+            lambda row: row['precipitation'] if row['temperature_2m'] < 1 else 0, axis=1)
         total_Swe = df_season['Swe_hourly'].sum()
-        wind_speeds = df_season["wind_speed_10m (m/s)"].tolist()
+        wind_speeds = df_season["wind_speed_10m"].tolist()
         result = compute_snow_transport(T, F, theta, total_Swe, wind_speeds)
         result["season"] = f"{s}-{s+1}"
         results_list.append(result)
@@ -151,13 +154,14 @@ def compute_average_sector(df):
     for s, group in df.groupby('season'):
         group = group.copy()
         group['Swe_hourly'] = group.apply(
-            lambda row: row['precipitation (mm)'] if row['temperature_2m (°C)'] < 1 else 0, axis=1)
-        ws = group["wind_speed_10m (m/s)"].tolist()
-        wdir = group["wind_direction_10m (°)"].tolist()
+            lambda row: row['precipitation'] if row['temperature_2m'] < 1 else 0, axis=1)
+        ws = group["wind_speed_10m"].tolist()
+        wdir = group["wind_direction_10m"].tolist()
         sectors = compute_sector_transport(ws, wdir)
         sectors_list.append(sectors)
     avg_sectors = np.mean(sectors_list, axis=0)
     return avg_sectors
+
 
 def plot_rose(avg_sector_values, overall_avg):
     """
@@ -168,7 +172,9 @@ def plot_rose(avg_sector_values, overall_avg):
       overall_avg: overall average yearly snow transport (Qt in kg/m) across all seasons.
                    This value will be converted to tonnes/m.
     """
-    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(8, 8))
+    
+    #fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(8, 8))
+    fig = go.Figure()
     num_sectors = 16
     # Compute bin centers: each bin is 360/16 = 22.5° wide
     angles = np.deg2rad(np.arange(0, 360, 360/num_sectors))
@@ -176,27 +182,60 @@ def plot_rose(avg_sector_values, overall_avg):
     # Convert the sector values from kg/m to tonnes/m
     avg_sector_values_tonnes = np.array(avg_sector_values) / 1000.0
 
-    ax.bar(angles, avg_sector_values_tonnes, width=np.deg2rad(360/num_sectors),
-           align='center', edgecolor='black')
+    #ax.bar(angles, avg_sector_values_tonnes, width=np.deg2rad(360/num_sectors),align='center', edgecolor='black')
+    fig.add_trace(go.Barpolar(
+        r=avg_sector_values_tonnes,
+        theta=np.rad2deg(angles),
+        width=[360/num_sectors]*num_sectors,
+        marker_line_color="black",
+        marker_line_width=1,
+        opacity=0.8
+    ))
     
     # Ensure north is at the top and the direction is clockwise.
-    ax.set_theta_zero_location("N")
-    ax.set_theta_direction(-1)
+    #ax.set_theta_zero_location("N")
+    #ax.set_theta_direction(-1)
+    fig.update_layout(
+        polar=dict(
+            angularaxis=dict(
+                direction="clockwise",
+                rotation=90,
+                tickmode='array',
+                tickvals=np.rad2deg(angles),
+                ticktext=['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                          'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+            ),
+            radialaxis=dict(
+                title="Average Transport (tonnes/m)",
+                tickformat=","
+            )
+        ),
+        showlegend=False,
+        title=f"Average Directional Distribution of Snow Transport<br>Overall Average Qt: {overall_avg / 1000.0:,.1f} tonnes/m"
+    )
+    
     
     # Set custom tick labels for each sector.
     directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                   'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-    ax.set_xticks(angles)
-    ax.set_xticklabels(directions)
+    # ax.set_xticks(angles)
+    # ax.set_xticklabels(directions)
+    fig.update_layout(polar_angularaxis_tickvals=np.rad2deg(angles),
+                      polar_angularaxis_ticktext=directions)
     
     # Convert overall average from kg/m to tonnes/m and format with one decimal.
     overall_tonnes = overall_avg / 1000.0
-    ax.set_title(
-        f"Average Directional Distribution of Snow Transport\nOverall Average Qt: {overall_tonnes:,.1f} tonnes/m",
-        va='bottom'
+    # ax.set_title(
+    #     f"Average Directional Distribution of Snow Transport\nOverall Average Qt: {overall_tonnes:,.1f} tonnes/m",
+    #     va='bottom'
+    # )
+    # plt.tight_layout()
+    # plt.show()
+    fig.update_layout(title_text=
+        f"Average Directional Distribution of Snow Transport<br>Overall Average Qt: {overall_tonnes:,.1f} tonnes/m"
     )
-    plt.tight_layout()
-    plt.show()
+    return fig
+
 
 def compute_fence_height(Qt, fence_type):
     """
@@ -234,11 +273,14 @@ def compute_fence_height(Qt, fence_type):
     H = (Qt_tonnes / factor) ** (1 / 2.2)
     return H
 
-def main():
+def main(df : pd.DataFrame):
     # Read the CSV file (skip metadata rows so that the header is read correctly).
-    filename = "open-meteo-60.57N7.60E1212m.csv"
-    df = pd.read_csv(filename, skiprows=3)
-    
+    # print(os.getcwd())
+    # os.chdir(os.path.dirname(__file__))
+    # filename = "data/open-meteo-subset.csv"
+    # df = pd.read_csv(filename, skiprows=3)
+    if "time" not in df.columns:
+        raise ValueError("DataFrame must contain a 'time' column.")
     # Convert the 'time' column to datetime.
     df['time'] = pd.to_datetime(df['time'])
     
@@ -288,6 +330,53 @@ def main():
         "Slat-and-wire (m)": lambda x: f"{x:.1f}",
         "Solid (m)": lambda x: f"{x:.1f}"
     }))
+
+st.cache_data(ttl=600)
+def snowdrift(df):
+    # Convert the 'time' column to datetime.
+    df['time'] = pd.to_datetime(df['time'])
+
+    # Define season: if month >= 7, season = current year; otherwise, season = previous year.
+    df['season'] = df['time'].apply(lambda dt: dt.year if dt.month >= 7 else dt.year - 1)
+
+    # Parameters for the snow transport calculation.
+    T = 3000      # Maximum transport distance in meters
+    F = 30000     # Fetch distance in meters
+    theta = 0.5   # Relocation coefficient
+
+    # Compute seasonal results (yearly averages for each season).
+    yearly_df = compute_yearly_results(df, T, F, theta)
+    overall_avg = yearly_df['Qt (kg/m)'].mean()
+    print("\nYearly average snow drift (Qt) per season:")
+    print(f"Overall average Qt over all seasons: {overall_avg / 1000:.1f} tonnes/m")
+
+    yearly_df_disp = yearly_df.copy()
+    yearly_df_disp["Qt (tonnes/m)"] = yearly_df_disp["Qt (kg/m)"] / 1000
+    print("\nYearly average snow drift (Qt) per season (in tonnes/m) and control type:")
+    print(yearly_df_disp[['season', 'Qt (tonnes/m)', 'Control']].to_string(index=False, 
+            formatters={'Qt (tonnes/m)': lambda x: f"{x:.1f}"}))
+
+    overall_avg_tonnes = overall_avg / 1000
+    print(f"\nOverall average Qt over all seasons: {overall_avg_tonnes:.1f} tonnes/m")
+
+    # Compute the average directional breakdown (average over all seasons).
+    avg_sectors = compute_average_sector(df)
+
+    # Create the rose plot canvas with the average directional breakdown.
+    plot = plot_rose(avg_sectors, overall_avg)
+
+    # Compute and print necessary fence heights for each season and for three fence types.
+    fence_types = ["Wyoming", "Slat-and-wire", "Solid"]
+    fence_results = []
+    for idx, row in yearly_df.iterrows():
+        season = row["season"]
+        Qt_val = row["Qt (kg/m)"]
+        res = {"season": season}
+        for ft in fence_types:
+            res[f"{ft} (m)"] = compute_fence_height(Qt_val, ft)
+        fence_results.append(res)
+    fence_df = pd.DataFrame(fence_results)
+    return plot, fence_df,yearly_df, overall_avg_tonnes
 
 if __name__ == "__main__":
     main()

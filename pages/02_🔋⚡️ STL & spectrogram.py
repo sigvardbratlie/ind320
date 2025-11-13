@@ -20,16 +20,19 @@ def loess(data : pd.DataFrame,
         trend_smoother : int = 141,
         robust  : bool = True,
           ):
+        if data.empty:
+            st.warning("No data available.")
+            return go.Figure()
     
         if period > trend_smoother:
             trend_smoother = period + 1 if period % 2 == 0 else period
 
-        data = data.loc[(data["pricearea"] == price_area) & (data["productiongroup"] == production_group), "quantitykwh"]
-        if data.empty:
+        data_filtered = data.loc[(data["pricearea"] == price_area) & (data["productiongroup"] == production_group), "quantitykwh"]
+        if data_filtered.empty:
             st.warning(f"No data available for Area: {price_area}, Group: {production_group}")
             return go.Figure()
 
-        stl = STL(data, 
+        stl = STL(data_filtered, 
                 period = period,
                 robust=robust, 
                 seasonal=seasonal_smoother, 
@@ -95,9 +98,14 @@ st.title("STL Decomposition and Spectrogram 🔋⚡️")
 #           DATA LOADING
 # =================================
 sidebar_setup("Electricity data analysis")
-el_sidebar()
-data = get_elhub_data(st.session_state["client"], dataset=st.session_state.dataset,dates = st.session_state.dates,) 
+el_sidebar(radio_group=True)
 
+coordinates = st.session_state.get("location",{}).get("coordinates", None)
+city = st.session_state.get("location",{}).get("city", None)
+price_area = st.session_state.get("location",{}).get("price_area", "NO1")
+group = st.session_state.production_group if st.session_state.dataset == "production" else st.session_state.consumption_group
+
+data = get_elhub_data(st.session_state["client"], dataset=st.session_state.dataset,dates = st.session_state.dates,) 
 
 
 #===========================================
@@ -132,19 +140,18 @@ with tabs[0]:
     with stl_selection_cols[3]:
         robust = st.checkbox("Robust STL", value=True)
 
-    production_group = st.session_state.production_group
-    if isinstance(production_group, list):
-        production_group = production_group[0]  #select first production group if multiple selected
+    if isinstance(group, list):
+        group = group[0]  #select first group if multiple selected
     
 #===========================================
 #           STL DECOMPOSITION
 #===========================================
     fig = loess(data = data,
                 period = period,
-        production_group=production_group,
-        price_area=st.session_state.price_area,
+        production_group=group,
+        price_area=price_area,
         robust=robust) #Weekly seasonality for wind
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, key = "stl_plot")
 
 with tabs[1]:
     st.subheader("Spectrogram")
@@ -167,8 +174,8 @@ with tabs[1]:
 #           SPECTROGRAM
 #===========================================
     fig = spectrogram(data = data, 
-                      production_group=production_group, 
-                      price_area=st.session_state.price_area,
+                      production_group=group, 
+                      price_area=price_area,
                       window_length=window_length,
                       overlap=overlap)
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, key = "spectrogram_plot")

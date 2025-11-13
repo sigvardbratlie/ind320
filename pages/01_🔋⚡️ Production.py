@@ -19,12 +19,14 @@ el_sidebar(disable_dataset_selection=True)
 # =================================
 #           DATA LOADING
 # =================================
-data = get_elhub_data(st.session_state["client"], dataset=st.session_state.dataset,dates = st.session_state.dates,)
+coordinates = st.session_state.get("location",{}).get("coordinates", None)
+city = st.session_state.get("location",{}).get("city", None)
+price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 
+data = get_elhub_data(st.session_state["client"], dataset=st.session_state.dataset,dates = st.session_state.dates,)
 
 #st.markdown("### ELECTRICITY PRODUCTION DATA")
 st.write("---")
-price_area = st.session_state.price_area
 cols = st.columns(2) #split into two columns
 with cols[0]:
     st.markdown("## 🔋 Production by Group")        
@@ -49,6 +51,8 @@ with cols[1]:
                             pd.Grouper(level = "starttime", freq="D")]
                                     )["quantitykwh"].sum().reset_index() #Aggregatate data for line plot. Same aggregation as in notebook
     
+    if isinstance(st.session_state.production_group,str):
+        st.session_state.production_group = [st.session_state.production_group]
     data_line["smooth"] = data_line.groupby("productiongroup")["quantitykwh"]\
             .transform(lambda x: x.rolling(window=5, min_periods=1).mean()) #moving average with a window of 5 days
     data_line = data_line[data_line["productiongroup"].isin(st.session_state.production_group)] #filter on selected production groups. default all groups
