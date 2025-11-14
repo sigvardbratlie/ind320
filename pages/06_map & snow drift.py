@@ -50,43 +50,25 @@ coordinates = st.session_state.get("location",{}).get("coordinates", None)
 city = st.session_state.get("location",{}).get("city", None)
 price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 
-df_el = get_elhub_data(st.session_state["client"],dataset=st.session_state.dataset,dates = st.session_state.dates,)
-#st.info("Dataset: " + st.session_state.dataset)
-#st.info(f"Production Groups: {st.session_state.production_group}" if st.session_state.dataset == "production" else f"Consumption Groups: {st.session_state.consumption_group}")
-if st.session_state.dataset == "production":
-    df_el = df_el[df_el["productiongroup"].isin(st.session_state.production_group)]
-elif st.session_state.dataset == "consumption":
-    df_el = df_el[df_el["consumptiongroup"].isin(st.session_state.consumption_group)]   
+df_el = get_elhub_data(st.session_state["client"],dataset=st.session_state.group.get("name"),dates = st.session_state.dates,filter_group=True,aggregate_group=False)
 
 dfg = df_el.groupby("pricearea")["quantitykwh"].mean().reset_index()
 dfg["quantitymwh"] = dfg["quantitykwh"] // 1e3  # Convert to kWh
 norm = Normalize(vmin=dfg["quantitymwh"].min(), vmax=dfg["quantitymwh"].max())
-colormap = plt.cm.Blues  # eller RdYlGn, Viridis osv
-
-#st.dataframe(df_el.head())
-#st.dataframe(df_el["consumptiongroup"].value_counts())
-#st.info(df_el["consumptiongroup"].unique())
+#colormap = plt.cm.Blues  # eller RdYlGn, Viridis osv
+import matplotlib as mpl
+colormap =  mpl.colormaps['viridis']
 
 
 gj = load_geodata(dfg = dfg)
 
 
-weather_data = get_weather_data(lat = coordinates[0], lon = coordinates[1], dates = st.session_state.dates)
-df_w = pd.DataFrame(weather_data.get("hourly"))
-df_w["time"] = pd.to_datetime(df_w["time"])
-
 def get_color(value):
     rgba = colormap(norm(value))
     return '#{:02x}{:02x}{:02x}'.format(int(rgba[0]*255), int(rgba[1]*255), int(rgba[2]*255))
 
-def load_map(gj,coordinates : tuple = None):
-    if coordinates:
-        start_coordinates = list(coordinates)
-    else:
-        start_coordinates = [59.911491, 10.757933]  # Default to Oslo
-
-    
-    m = folium.Map(location=start_coordinates, zoom_start=4,tiles='CartoDB positron') #create map
+def load_map(gj,coordinates : tuple = None):    
+    m = folium.Map(location=coordinates, zoom_start=4,tiles='CartoDB positron') #create map
 
     folium.Choropleth(
                 geo_data=gj,
@@ -94,7 +76,7 @@ def load_map(gj,coordinates : tuple = None):
                 data=dfg,
                 columns=['pricearea', 'quantitymwh'],
                 key_on='feature.properties.ElSpotOmr',
-                fill_color='Blues',
+                fill_color=colormap.name,
                 fill_opacity=0.7,
                 line_opacity=0.2,
                 line_color='black',
@@ -111,51 +93,73 @@ def load_map(gj,coordinates : tuple = None):
                     fields=['ElSpotOmr', 'quantitymwh'],
                     aliases=['Price Area', 'MWh'])
             ).add_to(m)
-    if coordinates:
-        lat, lon = coordinates
-        folium.Marker(
-                location=[lat, lon],
-                popup=city,
-                icon=folium.Icon(color='green', icon='info-sign')
+    for feature in gj.get("features", []):
+        if price_area == feature['properties']['ElSpotOmr'].replace(" ",""):
+            folium.GeoJson(
+                feature,
+                style_function=lambda x,: {
+                    'fillColor': colormap.name,
+                    'color': "black",
+                    'weight': 3,
+                    'fillOpacity': 0.4,
+                },
+                tooltip=folium.features.GeoJsonTooltip(
+                    fields=['ElSpotOmr', 'quantitymwh'],
+                    aliases=['Price Area', 'MWh'])
             ).add_to(m)
+
+    lat, lon = coordinates
+    folium.Marker(
+            location=[lat, lon],
+            popup=city,
+            icon=folium.Icon(color='green', icon='info-sign')
+        ).add_to(m)
 
     folium.LayerControl().add_to(m)
     return m
 
 m = load_map(gj, coordinates=coordinates)
 
-def callback():
+def update_location():
     try:
         prop = st.session_state.get("my_map",{}).get("last_active_drawing",{}).get("properties",{})
-        if prop:
-            st.session_state.price_area = prop.get("ElSpotOmr","").replace(" ","")
+        coor = st.session_state.get("my_map",{}).get("last_clicked",{})
+        lat,lon = coor.get("lat"), coor.get("lng")
+        selected_coordinates = (lat,lon)    
+        if prop and selected_coordinates != (None,None):
+            st.session_state.location.update({"coordinates": selected_coordinates,
+                                      "city": None,
+                                      "price_area": prop.get("ElSpotOmr","").replace(" ","")})
+        
         
     except (AttributeError, TypeError) as e:
         pass
     except Exception as e:
         st.error(f"Error in callback: {e}")
 
+
 st_folium(m,width = "100%",height=600,
-          on_change=callback,
-          key="my_map")
+              on_change=update_location,
+              key="my_map")
 
-plot, fence_df,yearly_df, overall_avg = snowdrift(df = df_w)
-st.plotly_chart(plot,use_container_width=True)
-st.write("\nYearly average snow drift (Qt) per season:")
-st.write(f"Overall average Qt over all seasons: {overall_avg / 1000:.1f} tonnes/m")
 
-yearly_df_disp = yearly_df.copy()
-yearly_df_disp["Qt (tonnes/m)"] = yearly_df_disp["Qt (kg/m)"] / 1000
-st.write("\nYearly average snow drift (Qt) per season (in tonnes/m) and control type:")
-st.dataframe(yearly_df_disp[['season', 'Qt (tonnes/m)', 'Control']].style.format({
-    'Qt (tonnes/m)': "{:.1f}"
-}))
+#=================================
+#       SNOW DRIFT ANALYSIS
+#=================================
+snow_container = st.container(width="stretch")
+with snow_container:
+    df_w = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=False)
+    if isinstance(df_w, pd.DataFrame) and not df_w.empty:
+        plot, fence_df,yearly_df, overall_avg = snowdrift(df = df_w)
+        st.plotly_chart(plot,use_container_width=True)
+        
+        yearly_df_disp = yearly_df.copy()
+        yearly_df_disp["Qt (tonnes/m)"] = yearly_df_disp["Qt (kg/m)"] / 1000
+        
 
-overall_avg_tonnes = overall_avg / 1000
-st.write(f"\nOverall average Qt over all seasons: {overall_avg_tonnes:.1f} tonnes/m")
-st.write("\nNecessary fence heights per season (in meters):")
-st.dataframe(fence_df.style.format({
-        "Wyoming (m)": "{:.1f}",
-        "Slat-and-wire (m)": "{:.1f}",
-        "Solid (m)": "{:.1f}"
-    }))
+        overall_avg_tonnes = overall_avg / 1000
+
+        snow_df = pd.merge(yearly_df, fence_df, on="season")
+        snow_df.set_index("season", inplace=True)
+        snow_df.drop(columns=["Control"], inplace=True)
+        st.dataframe(snow_df.T.round(2).style.format("{:,.2f}"))

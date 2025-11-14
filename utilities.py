@@ -9,22 +9,20 @@ from typing import Literal
 load_dotenv()
 
 
-
-def init():
-    st.session_state['client'] = init_connection()
-    #st.session_state.setdefault("price_area", "NO1")
-    st.session_state.setdefault("start_date", datetime.datetime(2021,1,1))
-    st.session_state.setdefault("end_date", datetime.datetime(2024,12,31))
-    st.session_state.setdefault("production_group", ["hydro","wind","solar","thermal","other"])
-    st.session_state.setdefault("consumption_group", ['secondary', 'primary','tertiary', 'cabin',  'household'])
-    st.session_state.setdefault("dataset", "production")
-    st.session_state.setdefault("location", {"city": "Oslo", 
-                                             "coordinates": (59.9139, 10.7522), 
-                                             "price_area": "NO1"})
-
 @st.cache_resource
 def init_connection():
     return pymongo.MongoClient(st.secrets["mongo"]["uri"])
+
+def init():
+    st.session_state['client'] = init_connection()
+    st.session_state.setdefault("dates", (datetime.datetime(2021,1,1), datetime.datetime(2024,12,31)))
+    st.session_state.setdefault("group", {"name" : "production", 
+                                          "feat_name" : "productiongroup",
+                                          "values" : ["hydro","wind","solar","thermal","other"]})
+    st.session_state.setdefault("location", {"city": "Oslo", 
+                                             "coordinates": (59.9139, 10.7522), 
+                                             "price_area": "NO1"})
+    
 
 @st.cache_data(ttl=600)
 def check_mongodb_connection():
@@ -41,7 +39,10 @@ def check_mongodb_connection():
 def get_elhub_data(_client,
                    dataset : Literal["production","consumption"]= "production",
                    dates : tuple = (datetime.datetime(2024,1,1),datetime.datetime(2024,12,31)),
+                   filter_group : bool = False,
+                   aggregate_group : bool = False
                    ) -> pd.DataFrame:
+    
     if isinstance(dates[0], datetime.date) or isinstance(dates[1], datetime.date):
         dates = (datetime.datetime.combine(dates[0], datetime.time()),
                  datetime.datetime.combine(dates[1], datetime.time()))
@@ -60,9 +61,17 @@ def get_elhub_data(_client,
     data.set_index("starttime", inplace=True)
     data.sort_index(inplace=True)
     data.drop(columns=["_id"], inplace=True,errors='ignore')
+
+    if filter_group:
+        feat_name = st.session_state.group.get("feat_name")
+        values = st.session_state.group.get("values")
+        data = data[data[feat_name].isin(values)]
+
+
+    if aggregate_group:
+        data = data.groupby(data.index)['quantitykwh'].sum().reset_index().set_index("starttime").sort_index()
+
     return data
-
-
 
 # # ==== READING DATA ====
 def mk_request(url: str,params: dict = None):
@@ -77,7 +86,8 @@ def mk_request(url: str,params: dict = None):
 
 #Function for the API download
 @st.cache_data(ttl=7200)
-def get_weather_data(lat : float , lon:float, dates : tuple):
+def get_weather_data(coordinates,dates : tuple,set_time_index: bool = True) -> pd.DataFrame:
+    lat, lon = coordinates
     params = {"latitude" : lat, "longitude": lon, 
               "start_date": dates[0].strftime("%Y-%m-%d"),
               "end_date": dates[1].strftime("%Y-%m-%d"),
@@ -85,7 +95,15 @@ def get_weather_data(lat : float , lon:float, dates : tuple):
               "models" : "era5"
               }
     base_url = "https://archive-api.open-meteo.com/v1/archive?"
-    return mk_request(base_url,params=params)
+    response = mk_request(base_url,params=params)
+    if response:
+        df_w = pd.DataFrame(response.get("hourly"))
+        df_w["time"] = pd.to_datetime(df_w["time"])
+        if set_time_index:
+            return df_w.set_index("time")
+        return df_w
+    st.warning("No weather data retrieved from API.")
+    return pd.DataFrame()
 
 def geocode(city : str):
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=10&language=en&format=json"
@@ -98,36 +116,35 @@ def extract_coordinates(city: str):
     return lat, lon
 
 
+def select_price_area():
+    options = ["NO1","NO2","NO3","NO4","NO5"]
+    price_area = st.selectbox("Select price area", options=options, index=options.index(st.session_state.get("location").get("price_area")))
+    if price_area:
+        st.session_state.location["price_area"] = price_area
 
-def sidebar_setup(infotxt : str,start_date : str = "2024-01-01", end_date : str = "2024-12-31"):
-    with st.sidebar:
-        st.info(infotxt)
-        locations = {"Oslo" : "NO1", 
+def select_city():
+    locations = {"Oslo" : "NO1", 
                 "Kristiansand" : "NO2", 
                 "Trondheim" : "NO3", 
                 "Tromsø" : "NO4", 
                 "Bergen" : "NO5"}
-        options = [f"{v} ({k})" for k,v in locations.items()]
-        
+    city = st.selectbox("Select city", options=list(locations.keys()), index=None)
+    if city:
+        st.session_state.location["city"] = city
+        st.session_state.location["price_area"] = locations.get(city)
+        coord = extract_coordinates(city)
+        st.session_state.location["coordinates"] = coord
+                          
+def sidebar_setup(infotxt : str,start_date : str = "2024-01-01", end_date : str = "2024-12-31"):
+    with st.sidebar:
+        st.info(infotxt)
         dates = st.date_input("Select Date Range",
                               value=(start_date, end_date),
                               min_value="2021-01-01",
                               max_value="2024-12-31",
                               )
-        price_area = st.session_state.get("location",{}).get("price_area")
-        city = st.session_state.get("location",{}).get("city")
-        default_option = f"{price_area} ({city})"
-        #price_area = st.radio("Select Price Area", options=price_area_options,index = price_area_options.index(st.session_state.price_area.strip()),horizontal=True,) 
-        location = st.selectbox("Select price area", options=options, index=options.index(default_option)) #price_area_options.index(st.session_state.get("location",{}).get("price_area", "NO1")))
-
-        if location:
-            city = location.split("(")[1].replace(")","").strip()
-            price_area = location.split("(")[0].strip()
-
-            coord = extract_coordinates(city)
-            st.session_state.location = {"city": city, 
-                                        "price_area": price_area,
-                                        "coordinates": coord}
+        select_price_area()
+        select_city()
 
         if len(dates) == 2 and dates[1]>=dates[0]:
             st.session_state.dates = dates
@@ -148,34 +165,40 @@ def el_sidebar(disable_dataset_selection: bool = False,
         prod_group = None
         cons_group = None
         if dataset == "production":
+            options = ["hydro","wind","solar","thermal","other"]
+            default = st.session_state.group.get("values") if st.session_state.group.get("values") in options else ["hydro","wind","solar","thermal","other"]
             if radio_group:
                 prod_group = st.radio("Select Production Group",
-                                    options=["hydro","wind","solar","thermal","other"],
+                                    options=options,
                                     index=0,
                                     horizontal=True) #widget for selecting production groups
             else:
                 prod_group = st.pills("Select Production Group",
-                                    options=["hydro","wind","solar","thermal","other"],
+                                    options=options,
                                     selection_mode="multi",
-                                    default = st.session_state.production_group) #widget for selecting production groups
+                                    default = default) #widget for selecting production groups
             if prod_group:
-                st.session_state.production_group = prod_group
+                st.session_state.group = {"name" : "production", 
+                                         "feat_name" : "productiongroup",
+                                         "values" : prod_group}
         elif dataset == "consumption":
+            options = ['secondary', 'primary', 'tertiary', 'cabin', 'household']
+            default = st.session_state.group.get("values") if st.session_state.group.get("values") in options else ['secondary', 'primary', 'tertiary', 'cabin', 'household']
             if radio_group:
                 cons_group = st.radio("Select Consumption Group",
-                                    options=['secondary', 'primary', 'tertiary', 'cabin', 'household'],
-                                    index=0,
+                                    options=options,
+                                    index=0 ,
                                     horizontal=True) #widget for selecting consumption groups
             else:
                 cons_group = st.pills("Select Consumption Group",
-                                    options=['secondary', 'primary', 'tertiary', 'cabin', 'household'],
+                                    options=options,
                                     selection_mode="multi",
-                                    default = st.session_state.consumption_group) #widget for selecting consumption groups
+                                    default = default) #widget for selecting consumption groups
             if cons_group:
-                st.session_state.consumption_group = cons_group
+                st.session_state.group = {"name" : "consumption", 
+                                         "feat_name" : "consumptiongroup",
+                                         "values" : cons_group}
             
-        if cons_group or prod_group:
-            st.session_state.dataset = dataset
         
 
 

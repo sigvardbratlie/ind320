@@ -20,4 +20,4 @@ with cols[1]:
     st.subheader("Weather Data")
     st.page_link(page="pages/04_🌡️☁️  Plots.py",label = "🌡️☁️ Weather Data Plots")
     st.page_link(page="pages/05_🌡️☁️ Outliers & LOF.py",label = "🌡️☁️ Outlier Detection & LOF Analysis")
-    st.page_link(page="pages/06_map.py",label = "🗺️ Electricity Data Map")
+    st.page_link(page="pages/06_Map & snow drift.py",label = "🗺️ Electricity Data Map")

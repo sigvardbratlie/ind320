@@ -19,10 +19,7 @@ price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 # =================================
 #           DATA LOADING
 # =================================
-data = get_weather_data(coordinates[0], coordinates[1], dates = st.session_state.dates)
-df = pd.DataFrame(data.get("hourly"))
-df["time"] = pd.to_datetime(df["time"])
-df.set_index("time", inplace=True)
+df  = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=True)
 
 
 

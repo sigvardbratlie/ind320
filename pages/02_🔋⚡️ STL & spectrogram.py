@@ -103,9 +103,8 @@ el_sidebar(radio_group=True)
 coordinates = st.session_state.get("location",{}).get("coordinates", None)
 city = st.session_state.get("location",{}).get("city", None)
 price_area = st.session_state.get("location",{}).get("price_area", "NO1")
-group = st.session_state.production_group if st.session_state.dataset == "production" else st.session_state.consumption_group
 
-data = get_elhub_data(st.session_state["client"], dataset=st.session_state.dataset,dates = st.session_state.dates,) 
+data = get_elhub_data(st.session_state["client"], dataset=st.session_state.group.get("name"),dates = st.session_state.dates,filter_group=False,aggregate_group=False) 
 
 
 #===========================================
@@ -140,8 +139,10 @@ with tabs[0]:
     with stl_selection_cols[3]:
         robust = st.checkbox("Robust STL", value=True)
 
-    if isinstance(group, list):
-        group = group[0]  #select first group if multiple selected
+    if isinstance(st.session_state.group.get("values"), list):
+        group = st.session_state.group.get("values")[0]  #select first group if multiple selected
+    else:
+        group = st.session_state.group.get("values")
     
 #===========================================
 #           STL DECOMPOSITION

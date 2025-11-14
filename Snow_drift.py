@@ -205,32 +205,25 @@ def plot_rose(avg_sector_values, overall_avg):
                 ticktext=['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                           'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
             ),
-            radialaxis=dict(
-                title="Average Transport (tonnes/m)",
-                tickformat=","
-            )
+            # radialaxis=dict(
+            #     title="Average Transport (tonnes/m)",
+            #     tickformat=","
+            # )
         ),
         showlegend=False,
         title=f"Average Directional Distribution of Snow Transport<br>Overall Average Qt: {overall_avg / 1000.0:,.1f} tonnes/m"
     )
     
     
-    # Set custom tick labels for each sector.
     directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                   'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-    # ax.set_xticks(angles)
-    # ax.set_xticklabels(directions)
+
     fig.update_layout(polar_angularaxis_tickvals=np.rad2deg(angles),
                       polar_angularaxis_ticktext=directions)
     
     # Convert overall average from kg/m to tonnes/m and format with one decimal.
     overall_tonnes = overall_avg / 1000.0
-    # ax.set_title(
-    #     f"Average Directional Distribution of Snow Transport\nOverall Average Qt: {overall_tonnes:,.1f} tonnes/m",
-    #     va='bottom'
-    # )
-    # plt.tight_layout()
-    # plt.show()
+
     fig.update_layout(title_text=
         f"Average Directional Distribution of Snow Transport<br>Overall Average Qt: {overall_tonnes:,.1f} tonnes/m"
     )
@@ -272,64 +265,6 @@ def compute_fence_height(Qt, fence_type):
     
     H = (Qt_tonnes / factor) ** (1 / 2.2)
     return H
-
-def main(df : pd.DataFrame):
-    # Read the CSV file (skip metadata rows so that the header is read correctly).
-    # print(os.getcwd())
-    # os.chdir(os.path.dirname(__file__))
-    # filename = "data/open-meteo-subset.csv"
-    # df = pd.read_csv(filename, skiprows=3)
-    if "time" not in df.columns:
-        raise ValueError("DataFrame must contain a 'time' column.")
-    # Convert the 'time' column to datetime.
-    df['time'] = pd.to_datetime(df['time'])
-    
-    # Define season: if month >= 7, season = current year; otherwise, season = previous year.
-    df['season'] = df['time'].apply(lambda dt: dt.year if dt.month >= 7 else dt.year - 1)
-    
-    # Parameters for the snow transport calculation.
-    T = 3000      # Maximum transport distance in meters
-    F = 30000     # Fetch distance in meters
-    theta = 0.5   # Relocation coefficient
-    
-    # Compute seasonal results (yearly averages for each season).
-    yearly_df = compute_yearly_results(df, T, F, theta)
-    overall_avg = yearly_df['Qt (kg/m)'].mean()
-    print("\nYearly average snow drift (Qt) per season:")
-    print(f"Overall average Qt over all seasons: {overall_avg / 1000:.1f} tonnes/m")
-    
-    yearly_df_disp = yearly_df.copy()
-    yearly_df_disp["Qt (tonnes/m)"] = yearly_df_disp["Qt (kg/m)"] / 1000
-    print("\nYearly average snow drift (Qt) per season (in tonnes/m) and control type:")
-    print(yearly_df_disp[['season', 'Qt (tonnes/m)', 'Control']].to_string(index=False, 
-          formatters={'Qt (tonnes/m)': lambda x: f"{x:.1f}"}))
-    
-    overall_avg_tonnes = overall_avg / 1000
-    print(f"\nOverall average Qt over all seasons: {overall_avg_tonnes:.1f} tonnes/m")
-    
-    # Compute the average directional breakdown (average over all seasons).
-    avg_sectors = compute_average_sector(df)
-    
-    # Create the rose plot canvas with the average directional breakdown.
-    plot_rose(avg_sectors, overall_avg)
-    
-    # Compute and print necessary fence heights for each season and for three fence types.
-    fence_types = ["Wyoming", "Slat-and-wire", "Solid"]
-    fence_results = []
-    for idx, row in yearly_df.iterrows():
-        season = row["season"]
-        Qt_val = row["Qt (kg/m)"]
-        res = {"season": season}
-        for ft in fence_types:
-            res[f"{ft} (m)"] = compute_fence_height(Qt_val, ft)
-        fence_results.append(res)
-    fence_df = pd.DataFrame(fence_results)
-    print("\nNecessary fence heights per season (in meters):")
-    print(fence_df.to_string(index=False, formatters={
-        "Wyoming (m)": lambda x: f"{x:.1f}",
-        "Slat-and-wire (m)": lambda x: f"{x:.1f}",
-        "Solid (m)": lambda x: f"{x:.1f}"
-    }))
 
 st.cache_data(ttl=600)
 def snowdrift(df):
@@ -378,5 +313,3 @@ def snowdrift(df):
     fence_df = pd.DataFrame(fence_results)
     return plot, fence_df,yearly_df, overall_avg_tonnes
 
-if __name__ == "__main__":
-    main()
