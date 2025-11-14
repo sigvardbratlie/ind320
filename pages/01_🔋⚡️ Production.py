@@ -16,6 +16,8 @@ st.set_page_config(layout="wide")
 st.title("Elhub 🔋⚡️")
 sidebar_setup("Electricity data analysis")
 el_sidebar(disable_dataset_selection=True)
+
+
 # =================================
 #           DATA LOADING
 # =================================

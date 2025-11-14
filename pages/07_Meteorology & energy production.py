@@ -6,11 +6,14 @@ from utilities import init, sidebar_setup,get_elhub_data,init_connection,el_side
 from plotly import subplots
 import plotly.graph_objects as go
 
+# =========================================
+#          FUNCTION DEFINITIONS & SETUP
+# =========================================
 st.set_page_config(
     page_title="Map Selection",
     page_icon="🗺️",
 )
-st.title("🗺️ Map Selection of Price Areas 🔋⚡️")
+st.title("Correlation between Meteorology and Energy Production")
 
 init()
 init_connection()
@@ -18,16 +21,20 @@ sidebar_setup("map")
 el_sidebar()
 
 
+# =========================================
+#          LOAD DATA
+# =========================================
 coordinates = st.session_state.get("location",{}).get("coordinates", None)
 city = st.session_state.get("location",{}).get("city", None)
 price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 
-st.json(st.session_state)
-df_el = get_elhub_data(st.session_state["client"],dataset=st.session_state.group.get("name"),dates = st.session_state.dates,filter_group=True)
-st.dataframe(df_el.head())
+#st.json(st.session_state)
+df_el = get_elhub_data(st.session_state["client"],
+                       dataset=st.session_state.group.get("name"),
+                       dates = st.session_state.dates,
+                       filter_group=True,
+                       aggregate_group=True)
 
-#st.dataframe(df_el.head())
-#st.dataframe(df_el)
 
 df_w = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=True)
 
@@ -37,18 +44,20 @@ with cols[0]:
     weather_col = st.selectbox("Select weather variable", options=df_w.columns.tolist(), index=1)
     df_w = df_w[[weather_col]]
 with cols[1]:
-    #st.info(f"Selected data are {(df_el.columns)}")
     el_col = st.selectbox("Select electricity variable", options=df_el.columns.tolist(), index=0)
-    # df_el = df_el.groupby(level = "starttime")[el_col].sum()
 
 
 df_merged = pd.merge_asof(df_el.sort_index(), df_w.sort_index(), 
                           left_index=True, right_index=True, 
                           direction="nearest", )
 
+# =========================================
+#                   CALCULATE
+# =========================================
+
 lag = st.slider("Select lag (hours)", min_value=0, max_value=10000, value=0, step=10)
 time = st.select_slider("Select time", options=df_merged.index.tolist(), value=df_merged.index[len(df_merged)//2])
-window = st.slider("Window length (days)", min_value=1, max_value=365, value=7, step=1)*24
+window = st.slider("Window length (days)", min_value=1, max_value=365, value=30, step=1)*24
 
 rolling_corr = df_merged[el_col].shift(lag).rolling(window, center=True).corr(df_merged[weather_col])
 
@@ -60,7 +69,10 @@ end_idx = min(len(df_merged), center_idx + half_window)
 
 fig = subplots.make_subplots(rows=3, cols=1, shared_xaxes=True)
 
-# Plot 1: el_col original (grå) + shifted del brukt i corr (rød)
+# =================================
+#           PLOTTING
+# =================================
+
 fig.add_trace(go.Scatter(x=df_merged.index, y=df_merged[el_col], 
                          name=el_col, line=dict(color='lightgray')), row=1, col=1)
 fig.add_trace(go.Scatter(x=df_merged.index[start_idx+lag:end_idx+lag], 
@@ -68,7 +80,6 @@ fig.add_trace(go.Scatter(x=df_merged.index[start_idx+lag:end_idx+lag],
                          name=f'{el_col} shifted (used)', 
                          line=dict(color='red', width=3)), row=1, col=1)
 
-# Plot 2: weather_col original (grå) + del brukt i corr (blå)
 fig.add_trace(go.Scatter(x=df_merged.index, y=df_merged[weather_col], 
                          name=weather_col, line=dict(color='lightgray')), row=2, col=1)
 fig.add_trace(go.Scatter(x=df_merged.index[start_idx:end_idx], 

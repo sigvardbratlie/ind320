@@ -13,14 +13,15 @@ st.set_page_config(layout="wide")
 st.title("Weather Data 🌡️☁️")
 sidebar_setup("weather data analysis")
 
-coordinates = st.session_state.get("location",{}).get("coordinates", None)
-city = st.session_state.get("location",{}).get("city", None)
-price_area = st.session_state.get("location",{}).get("price_area", "NO1")
+
 # =================================
 #           DATA LOADING
 # =================================
-df  = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=True)
+coordinates = st.session_state.get("location",{}).get("coordinates", None)
+city = st.session_state.get("location",{}).get("city", None)
+price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 
+df  = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=True)
 
 
 # === SETUP OPTIONS === 

@@ -9,6 +9,10 @@ from Snow_drift import snowdrift
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 
+
+# =================================
+#          FUNCTION DEFINITIONS
+# =================================
 @st.cache_data(ttl=600)
 def load_geodata(dfg : pd.DataFrame):
     try:
@@ -32,37 +36,6 @@ def load_geodata(dfg : pd.DataFrame):
 
     return gj
     
-
-
-st.set_page_config(
-    page_title="Map Selection",
-    page_icon="🗺️",
-)
-st.title("🗺️ Map Selection of Price Areas 🔋⚡️")
-
-init()
-init_connection()
-sidebar_setup("map")
-el_sidebar()
-
-
-coordinates = st.session_state.get("location",{}).get("coordinates", None)
-city = st.session_state.get("location",{}).get("city", None)
-price_area = st.session_state.get("location",{}).get("price_area", "NO1")
-
-df_el = get_elhub_data(st.session_state["client"],dataset=st.session_state.group.get("name"),dates = st.session_state.dates,filter_group=True,aggregate_group=False)
-
-dfg = df_el.groupby("pricearea")["quantitykwh"].mean().reset_index()
-dfg["quantitymwh"] = dfg["quantitykwh"] // 1e3  # Convert to kWh
-norm = Normalize(vmin=dfg["quantitymwh"].min(), vmax=dfg["quantitymwh"].max())
-#colormap = plt.cm.Blues  # eller RdYlGn, Viridis osv
-import matplotlib as mpl
-colormap =  mpl.colormaps['viridis']
-
-
-gj = load_geodata(dfg = dfg)
-
-
 def get_color(value):
     rgba = colormap(norm(value))
     return '#{:02x}{:02x}{:02x}'.format(int(rgba[0]*255), int(rgba[1]*255), int(rgba[2]*255))
@@ -118,8 +91,6 @@ def load_map(gj,coordinates : tuple = None):
     folium.LayerControl().add_to(m)
     return m
 
-m = load_map(gj, coordinates=coordinates)
-
 def update_location():
     try:
         prop = st.session_state.get("my_map",{}).get("last_active_drawing",{}).get("properties",{})
@@ -138,28 +109,70 @@ def update_location():
         st.error(f"Error in callback: {e}")
 
 
-st_folium(m,width = "100%",height=600,
-              on_change=update_location,
-              key="my_map")
+# =================================
+#          PAGE SETUP
+# =================================
+st.set_page_config(
+    page_title="Map Selection",
+    page_icon="🗺️",
+)
+st.title("Map and Snow Drift Analysis")
+
+init()
+init_connection()
+sidebar_setup("map")
+el_sidebar()
+
+# =================================
+#          LOAD DATA
+# =================================
+
+coordinates = st.session_state.get("location",{}).get("coordinates", None)
+city = st.session_state.get("location",{}).get("city", None)
+price_area = st.session_state.get("location",{}).get("price_area", "NO1")
+
+df_el = get_elhub_data(st.session_state["client"],dataset=st.session_state.group.get("name"),dates = st.session_state.dates,filter_group=True,aggregate_group=False)
+
+dfg = df_el.groupby("pricearea")["quantitykwh"].mean().reset_index()
+dfg["quantitymwh"] = dfg["quantitykwh"] // 1e3  # Convert to kWh
+norm = Normalize(vmin=dfg["quantitymwh"].min(), vmax=dfg["quantitymwh"].max())
+#colormap = plt.cm.Blues  # eller RdYlGn, Viridis osv
+import matplotlib as mpl
+colormap =  mpl.colormaps['viridis']
+
+# =================================
+#           FOLIUM MAP
+# =================================
+
+cols = st.columns(2)
+with cols[0]:
+    st.subheader("🗺️ Map Selection of Price Areas 🔋⚡️")
+    gj = load_geodata(dfg = dfg)
+    m = load_map(gj, coordinates=coordinates)
+    st_folium(m,width = "100%",height=600,
+                on_change=update_location,
+                key="my_map")
 
 
 #=================================
 #       SNOW DRIFT ANALYSIS
 #=================================
-snow_container = st.container(width="stretch")
-with snow_container:
-    df_w = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=False)
-    if isinstance(df_w, pd.DataFrame) and not df_w.empty:
-        plot, fence_df,yearly_df, overall_avg = snowdrift(df = df_w)
-        st.plotly_chart(plot,use_container_width=True)
-        
-        yearly_df_disp = yearly_df.copy()
-        yearly_df_disp["Qt (tonnes/m)"] = yearly_df_disp["Qt (kg/m)"] / 1000
-        
+with cols[1]:
+    st.subheader("❄️ Snow Drift Analysis")
+    snow_container = st.container(width="stretch")
+    with snow_container:
+        df_w = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=False)
+        if isinstance(df_w, pd.DataFrame) and not df_w.empty:
+            plot, fence_df,yearly_df, overall_avg = snowdrift(df = df_w)
+            st.plotly_chart(plot,use_container_width=True)
+            
+            yearly_df_disp = yearly_df.copy()
+            yearly_df_disp["Qt (tonnes/m)"] = yearly_df_disp["Qt (kg/m)"] / 1000
+            
 
-        overall_avg_tonnes = overall_avg / 1000
+            overall_avg_tonnes = overall_avg / 1000
 
-        snow_df = pd.merge(yearly_df, fence_df, on="season")
-        snow_df.set_index("season", inplace=True)
-        snow_df.drop(columns=["Control"], inplace=True)
-        st.dataframe(snow_df.T.round(2).style.format("{:,.2f}"))
+            snow_df = pd.merge(yearly_df, fence_df, on="season")
+            snow_df.set_index("season", inplace=True)
+            snow_df.drop(columns=["Control"], inplace=True)
+            st.dataframe(snow_df.T.round(2).style.format("{:,.2f}"))
