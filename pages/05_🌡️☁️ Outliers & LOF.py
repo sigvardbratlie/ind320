@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
+from scipy.stats import median_abs_deviation,trim_mean
 
 # =========================================
 #          DEFINE FUNCTIONS & SETUP
@@ -28,12 +29,13 @@ def lof(df,feature,n_neighbors: int = 20, contamination: float = 0.01):
     return fig
 
 def calc_highpass(data, cutoff: int):
-    fourier = dct(data, norm="forward")
+    norm = None
+    fourier = dct(data, norm=norm)
     #Plot the temperature as a function of time
     satv = fourier.copy()
     f = np.arange(0, len(satv))
     satv[f<cutoff] = 0 #high pass filter
-    return idct(satv, norm="forward")
+    return idct(satv, norm=norm)
 
 @st.cache_data(ttl=600)
 def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float = 2.0):
@@ -43,9 +45,10 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
         st.error("DataFrame is empty.")
         return None
     satv_reconstructed = calc_highpass(temp, cutoff)
-    mean,std = satv_reconstructed.mean(), satv_reconstructed.std()    
+    MAD = median_abs_deviation(satv_reconstructed)
+    std_robust = 1.4826 * MAD
 
-    outliers = np.where((satv_reconstructed > mean + nstd*std) | (satv_reconstructed < mean - nstd*std))
+    outliers = np.where((satv_reconstructed > MAD + nstd*std_robust) | (satv_reconstructed < MAD - nstd*std_robust))
     n_outliers = len(outliers[0])
     df_outliers = df.iloc[outliers]
 
@@ -54,8 +57,8 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df.index, y=df[feature], mode='lines', name='Original'))
-    fig.add_trace(go.Scatter(x=df.index, y=low_pass_reconstructed + nstd*std, mode='lines', name='Upper boundary', line=dict(color='orange')))
-    fig.add_trace(go.Scatter(x=df.index, y=low_pass_reconstructed - nstd*std, mode='lines', name='Lower boundary', line=dict(color='orange')))
+    fig.add_trace(go.Scatter(x=df.index, y=low_pass_reconstructed + nstd*std_robust, mode='lines', name='Upper boundary', line=dict(color='orange')))
+    fig.add_trace(go.Scatter(x=df.index, y=low_pass_reconstructed - nstd*std_robust, mode='lines', name='Lower boundary', line=dict(color='orange')))
     fig.add_trace(go.Scatter(x=df_outliers.index, y=df_outliers[feature], mode='markers', name='Outliers', marker=dict(color='red')))
     fig.update_layout(title='Temperature Data with lower and upper boundaries',
                       xaxis_title='Time',
