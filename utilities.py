@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import requests
 import os
+from datetime import datetime
 load_dotenv()
 
 
@@ -25,7 +26,9 @@ def check_mongodb_connection():
 @st.cache_data(ttl=600)
 def get_data(_client):
     db = _client.elhub
-    items = db.prod_data.find({})
+    items = db.prod_data.find({"starttime": {"$gte": datetime(2021, 1, 1),
+                                            "$lte": datetime(2021, 12, 31)},
+                                            })
     items = list(items)  # make hashable for st.cache_data
     data = pd.DataFrame(items)
     data.set_index("starttime", inplace=True)

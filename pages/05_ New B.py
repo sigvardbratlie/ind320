@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
+from scipy.stats import median_abs_deviation
 
 # =========================================
 #          DEFINE FUNCTIONS & SETUP
@@ -28,12 +29,13 @@ def lof(df,feature,n_neighbors: int = 20, contamination: float = 0.01):
     return fig
 
 def calc_highpass(data, cutoff: int):
-    fourier = dct(data, norm="forward")
+    norm = None
+    fourier = dct(data, norm=norm)
     #Plot the temperature as a function of time
     satv = fourier.copy()
     f = np.arange(0, len(satv))
     satv[f<cutoff] = 0 #high pass filter
-    return idct(satv, norm="forward")
+    return idct(satv, norm=norm)
 
 @st.cache_data(ttl=600)
 def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float = 2.0):
@@ -43,9 +45,11 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
         st.error("DataFrame is empty.")
         return None
     satv_reconstructed = calc_highpass(temp, cutoff)
-    mean,std = satv_reconstructed.mean(), satv_reconstructed.std()    
+    #mean,std = satv_reconstructed.mean(), satv_reconstructed.std()    
+    MAD = median_abs_deviation(satv_reconstructed)
+    std = 1.4826 * MAD
 
-    outliers = np.where((satv_reconstructed > mean + nstd*std) | (satv_reconstructed < mean - nstd*std))
+    outliers = np.where((satv_reconstructed > MAD + nstd*std) | (satv_reconstructed < MAD - nstd*std))
     n_outliers = len(outliers[0])
     df_outliers = df.iloc[outliers]
 
