@@ -151,13 +151,13 @@ def sidebar_setup(start_date : str = "2024-01-01", end_date : str = "2024-12-31"
         with st.expander("⚡️ Electricity Data Analysis", expanded=False):
             st.page_link(page="pages/el_prod.py",label = "⚡️ Production data")
             st.page_link(page="pages/el_stl_spect.py",label = "🔋 STL Decomposition & Spectrogram")
-            st.page_link(page="pages/comb_forecasting_2.py",label = "📈 Supply/Demand Forecasting")
+            st.page_link(page="pages/el_forecasting.py",label = "📈 Supply/Demand Forecasting")
         with st.expander("☁️ Weather Data Analysis", expanded=False):
             st.page_link(page="pages/weather_plots.py",label = "🌦️ Weather Data Plots")
             st.page_link(page="pages/weather_lof.py",label = "🌡️ Outlier Detection & LOF Analysis")
         with st.expander("🌡️⚡️ Weather and Electricity Analysis", expanded=False):
             st.page_link(page="pages/comb_map.py",label = "🗺️❄️ Electricity Data Map & snow drift")
-            st.page_link(page="pages/comb_forecasting.py",label = "📈 Supply/Demand Forecasting with weather data")
+            st.page_link(page="pages/comb_forecasting_weather.py",label = "📈 Supply/Demand Forecasting with weather data (Bonus)")
             
             st.page_link(page="pages/comb_corr.py",label = "🔗 Correlation Analysis between Weather and Electricity Data")
         
@@ -186,7 +186,9 @@ def sidebar_setup(start_date : str = "2024-01-01", end_date : str = "2024-12-31"
 
 
 def el_sidebar(disable_dataset_selection: bool = False, 
-               radio_group: bool = False,):
+               radio_group: bool = False,
+               disable_group : bool = False,
+               ):
     with st.sidebar:
         dataset = st.selectbox("Select production or consumption data", options=["production","consumption"], index=0, disabled=disable_dataset_selection)
         #year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)
@@ -205,7 +207,9 @@ def el_sidebar(disable_dataset_selection: bool = False,
                 prod_group = st.pills("Select Production Group",
                                     options=options,
                                     selection_mode="multi",
-                                    default = default) #widget for selecting production groups
+                                    default = default,
+                                    disabled=disable_group
+                                    ) #widget for selecting production groups
             if prod_group:
                 st.session_state.group = {"name" : "production", 
                                          "feat_name" : "productiongroup",

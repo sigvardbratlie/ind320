@@ -105,9 +105,8 @@ with cols[0]:
     st.session_state.location["price_area"] = pricearea
 with cols[1]:
     st.markdown("### Select exogenes variables:")
-    group_x = st.pills("Select exogenous variables", options=group_options, selection_mode= "multi", default = [x for x in group_options if x != group] ,key="exog_groups")
-    pricearea_x = st.pills("Select exogenous price areas", options=pricearea_options, selection_mode="multi", default=[x for x in pricearea_options if x != pricearea],key="exog_priceareas")
-
+    group_x = st.pills("Select exogenous variables", options=group_options, selection_mode= "multi", default = [x for x in group_options if x != group])
+    pricearea_x = st.pills("Select exogenous price areas", options=pricearea_options, selection_mode="multi", default=[x for x in pricearea_options if x != pricearea])
 with cols[2]:
     ci = st.toggle("Show Confidence Intervals", value=True)
 
@@ -139,7 +138,7 @@ st.markdown("---")
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=y_data.index, y=y_data, name='Actual'))
 fig.add_trace(go.Scatter(x=y_data.index[start_idx:end_idx], y=y_data.iloc[start_idx:end_idx], name='Training', line=dict(color='blue'), opacity=0.7))
-fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=forecast, name='Forecast', line=dict(dash='dash'), opacity=0.7))
+fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=forecast, name='Forecast', line=dict(color = "red"), opacity=0.7))
 
 #Confidence intervals
 if ci:
@@ -150,3 +149,4 @@ st.plotly_chart(fig, use_container_width=True)
 
 with st.expander("Data sources"):
     st.markdown(f'Elhub API https://api.elhub.no')
+

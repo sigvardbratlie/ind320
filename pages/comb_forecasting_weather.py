@@ -13,12 +13,19 @@ from sklearn.impute import SimpleImputer
 #          FUNCTION DEFINITIONS & SETUP
 # =========================================
 @st.cache_data(ttl=600)
-def sarimax_forecast(x_data, y_data, start_idx, end_idx):
+def sarimax_forecast(x_data, y_data, start_idx, end_idx,
+                     ar = 1,
+                    diff = 1,
+                    ma = 1,
+                    seasonal_diff = 1,
+                    seasonal_ma = 1,
+                    seasonal_ar = 1,
+                     seasonal_period=12):
     mod = sm.tsa.statespace.SARIMAX(
         y_data.iloc[start_idx:end_idx], 
         exog=x_data.iloc[start_idx:end_idx],
-        order=(1,1,1), 
-        seasonal_order=(1,1,1,12)
+        order=(ar,diff,ma), 
+        seasonal_order=(seasonal_ar,seasonal_diff,seasonal_ma,seasonal_period)
     )
     res = mod.fit(disp=False)
     
@@ -35,7 +42,7 @@ st.title("Electricity Supply/Demand Forecasting 📈")
 init()
 init_connection()
 sidebar_setup(disable_location=True)
-el_sidebar()
+el_sidebar(disable_group=True)
 
 # =========================================
 #          LOAD DATA
@@ -54,6 +61,9 @@ df_w = get_weather_data(coordinates=st.session_state.get("location",{}).get("coo
 df_m = pd.merge(df_el, df_w, left_index=True, right_index=True, how='inner')
 
 
+# =========================================
+#         RESAMPLE DATA
+# =========================================
 resample = st.radio("Resample data", options = ["Hourly", "Daily", "Weekly", "Monthly"], index=2,horizontal=True)
 if resample != "Hourly":
     if resample == "Daily":
@@ -63,13 +73,34 @@ if resample != "Hourly":
     elif resample == "Monthly":
         df_m = df_m.resample('M').mean()
 
+
+# =========================================
+#          PARAMETER SELECTION
+# =========================================
 trainin_time = st.select_slider("Select timeframe for training", options = df_m.index.sort_values().unique(), value=(df_m.index.min(), df_m.index[int(len(df_m)*0.7)]))
+cols = st.columns(3)
+param_names = ["AR", "differentiation", "MA"]
+params = []
+for i, col in enumerate(cols):
+    with col:
+        params.append(st.number_input(param_names[i], min_value=0, max_value=5, value=1, step=1))
+
+cols =  st.columns(4)
+season_param_names = ["Seasonal AR", "Seasonal differentiation", "Seasonal MA", "Seasonal period"]
+season_params = []
+for i, col in enumerate(cols):
+    with col:
+        if season_param_names[i] == "Seasonal period":
+            season_params.append(st.number_input(season_param_names[i], min_value=1, max_value=24, value=12, step=1))
+        else:
+            season_params.append(st.number_input(season_param_names[i], min_value=1, max_value=24, value=1, step=1))
+
+
 cols = st.columns(2)
 y = cols[0].selectbox("Select target variable for forecasting", options=df_m.columns, index=0)
 x = cols[1].multiselect("Select feature variables for forecasting (Exog)", options=df_m.columns.drop(y), default=df_m.columns.drop(y).tolist())
 
 ci = st.toggle("Show Confidence Intervals", value=False)
-
 
 
 # =========================================
@@ -85,8 +116,8 @@ x_data = df_m[x]
 imputer = SimpleImputer(strategy='mean') 
 x_data[:] = imputer.fit_transform(x_data) #impute to handle missing values
 
-predict_dy, predict_dy_ci, forecast = sarimax_forecast(x_data, y_data, start_idx, end_idx) #forecast
-
+predict_dy, predict_dy_ci, forecast = sarimax_forecast(x_data, y_data, start_idx, end_idx,
+                                                       *params, *season_params) #forecast
 #metrics
 st.write(f'MEAN Squared Error: {mean_squared_error(y_data.iloc[end_idx:].values, forecast.values):.2f} ')
 st.write(f'R2 Score: {r2_score(y_data.iloc[end_idx:].values, forecast.values):.2f} ')
@@ -95,7 +126,7 @@ st.write(f'R2 Score: {r2_score(y_data.iloc[end_idx:].values, forecast.values):.2
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=y_data.index, y=y_data, name='Actual'))
 fig.add_trace(go.Scatter(x=y_data.index[start_idx:end_idx], y=y_data.iloc[start_idx:end_idx], name='Training', line=dict(color='blue'), opacity=0.7))
-fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=forecast, name='Forecast', line=dict(dash='dash'), opacity=0.7))
+fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=forecast, name='Forecast', line=dict(color = "red"), opacity=0.7))
 
 #Confidence intervals
 if ci:

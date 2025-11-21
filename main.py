@@ -22,7 +22,7 @@ with cols[0]:
     )
     st.page_link(page="pages/el_prod.py",label = "⚡️ Production data")
     st.page_link(page="pages/el_stl_spect.py",label = "🔋 STL Decomposition & Spectrogram")
-    st.page_link(page="pages/comb_forecasting_2.py",label = "📈 Supply/Demand Forecasting")
+    st.page_link(page="pages/el_forecasting.py",label = "📈 Supply/Demand Forecasting")
 
 with cols[1]:
     st.subheader("Weather Data analysis 🌡️☁️")
@@ -43,6 +43,6 @@ with cols[2]:
         '''
     )
     st.page_link(page="pages/comb_map.py",label = "🗺️❄️ Electricity Data Map & snow drift")
-    st.page_link(page="pages/comb_forecasting.py",label = "📈 Electricity Supply/Demand Forecasting")
+    st.page_link(page="pages/comb_forecasting_weather.py",label = "📈 Supply/Demand Forecasting with Weather (Bonus)")
     st.page_link(page="pages/comb_corr.py",label = "🔗 Correlation Analysis between Weather and Electricity Data")
 
