@@ -1,19 +1,30 @@
+"""
+Utility functions for the Electricity and Weather Data Dashboard.
+
+This module provides shared functions for data loading, MongoDB connection,
+sidebar setup, and API requests used across the Streamlit application.
+"""
 import streamlit as st
 import pymongo
+from pymongo import MongoClient
 from dotenv import load_dotenv
 import pandas as pd
 import requests
 import os
 import datetime
-from typing import Literal
+from typing import Literal, Optional
+
 load_dotenv()
 
 
 @st.cache_resource
-def init_connection():
+def init_connection() -> MongoClient:
+    """Initialize and cache the MongoDB connection."""
     return pymongo.MongoClient(st.secrets["mongo"]["uri"])
 
-def init():
+
+def init() -> None:
+    """Initialize session state with default values for client, dates, group, and location."""
     st.session_state['client'] = init_connection()
     st.session_state.setdefault("dates", (datetime.datetime(2021,1,1), datetime.datetime(2024,12,31)))
     st.session_state.setdefault("group", {"name" : "production", 
@@ -25,7 +36,8 @@ def init():
     
 
 @st.cache_data(ttl=600)
-def check_mongodb_connection():
+def check_mongodb_connection() -> None:
+    """Verify MongoDB connection and display status in sidebar."""
     try:
         st.session_state["client"].admin.command('ping')
         st.sidebar.success("🔗 Connected to MongoDB")
@@ -33,16 +45,29 @@ def check_mongodb_connection():
         st.sidebar.error(f"Error connecting to MongoDB: {e}")
         st.stop()
 
-# Pull data from the collection.
-# Uses st.cache_data to only rerun when the query changes or after 10 min.
-@st.cache_data(ttl=600,show_spinner=False)
-def get_elhub_data(_client,
-                   dataset : Literal["production","consumption"]= "production",
-                   dates : tuple = (datetime.datetime(2024,1,1),datetime.datetime(2024,12,31)),
-                   filter_group : bool = False,
-                   aggregate_group : bool = False,
-                   set_time_index : bool = True,
-                   ) -> pd.DataFrame:
+@st.cache_data(ttl=600, show_spinner=False)
+def get_elhub_data(
+    _client: MongoClient,
+    dataset: Literal["production", "consumption"] = "production",
+    dates: tuple[datetime.datetime, datetime.datetime] = (datetime.datetime(2024, 1, 1), datetime.datetime(2024, 12, 31)),
+    filter_group: bool = False,
+    aggregate_group: bool = False,
+    set_time_index: bool = True,
+) -> pd.DataFrame:
+    """
+    Fetch electricity data from MongoDB.
+
+    Args:
+        _client: MongoDB client connection.
+        dataset: Type of data to fetch ('production' or 'consumption').
+        dates: Tuple of (start_date, end_date) for filtering.
+        filter_group: Whether to filter by production/consumption group.
+        aggregate_group: Whether to aggregate data by timestamp.
+        set_time_index: Whether to set starttime as the DataFrame index.
+
+    Returns:
+        DataFrame containing the electricity data.
+    """
     
     if isinstance(dates[0], datetime.date) or isinstance(dates[1], datetime.date):
         dates = (datetime.datetime.combine(dates[0], datetime.time()),
@@ -76,8 +101,17 @@ def get_elhub_data(_client,
 
     return data
 
-# # ==== READING DATA ====
-def mk_request(url: str,params: dict = None):
+def mk_request(url: str, params: Optional[dict] = None) -> Optional[dict]:
+    """
+    Make a GET request to the specified URL.
+
+    Args:
+        url: The API endpoint URL.
+        params: Optional query parameters.
+
+    Returns:
+        JSON response as a dictionary, or None if request fails.
+    """
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
@@ -87,9 +121,23 @@ def mk_request(url: str,params: dict = None):
         print(f"Error fetching data: {e}")
         return None
 
-#Function for the API download
 @st.cache_data(ttl=7200, show_spinner=False)
-def get_weather_data(coordinates,dates : tuple,set_time_index: bool = True) -> pd.DataFrame:
+def get_weather_data(
+    coordinates: tuple[float, float],
+    dates: tuple[datetime.datetime, datetime.datetime],
+    set_time_index: bool = True
+) -> pd.DataFrame:
+    """
+    Fetch weather data from the Open-Meteo API.
+
+    Args:
+        coordinates: Tuple of (latitude, longitude).
+        dates: Tuple of (start_date, end_date).
+        set_time_index: Whether to set time as the DataFrame index.
+
+    Returns:
+        DataFrame containing weather data.
+    """
     lat, lon = coordinates
     params = {"latitude" : lat, "longitude": lon, 
               "start_date": dates[0].strftime("%Y-%m-%d"),
@@ -109,18 +157,43 @@ def get_weather_data(coordinates,dates : tuple,set_time_index: bool = True) -> p
         st.warning("No weather data retrieved from API.")
         return pd.DataFrame()
 
-def geocode(city : str):
+def geocode(city: str) -> Optional[dict]:
+    """
+    Geocode a city name to coordinates using the Open-Meteo geocoding API.
+
+    Args:
+        city: Name of the city to geocode.
+
+    Returns:
+        JSON response with geocoding results, or None if request fails.
+    """
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=10&language=en&format=json"
     return mk_request(url)
 
+
 @st.cache_data(ttl=7200)
-def extract_coordinates(city: str):
+def extract_coordinates(city: str) -> tuple[float, float]:
+    """
+    Extract latitude and longitude from geocoding results.
+
+    Args:
+        city: Name of the city.
+
+    Returns:
+        Tuple of (latitude, longitude).
+    """
     res = geocode(city).get("results")[0]
     lat, lon = res.get("latitude"), res.get("longitude")
     return lat, lon
 
 
-def select_price_area(disable_location: bool = False):
+def select_price_area(disable_location: bool = False) -> None:
+    """
+    Display price area selector in sidebar and update session state.
+
+    Args:
+        disable_location: Whether to disable the selector.
+    """
     options = ["NO1","NO2","NO3","NO4","NO5"]
     price_area = st.selectbox("Select price area", 
                               options=options, 
@@ -129,7 +202,13 @@ def select_price_area(disable_location: bool = False):
     if price_area:
         st.session_state.location["price_area"] = price_area
 
-def select_city(disable_location: bool = False):
+def select_city(disable_location: bool = False) -> None:
+    """
+    Display city selector in sidebar and update session state.
+
+    Args:
+        disable_location: Whether to disable the selector.
+    """
     locations = {"Oslo" : "NO1", 
                 "Kristiansand" : "NO2", 
                 "Trondheim" : "NO3", 
@@ -142,7 +221,15 @@ def select_city(disable_location: bool = False):
         coord = extract_coordinates(city)
         st.session_state.location["coordinates"] = coord
                           
-def sidebar_setup(start_date : str = "2024-01-01", end_date : str = "2024-12-31",disable_location: bool = False):
+def sidebar_setup(start_date: str = "2024-01-01", end_date: str = "2024-12-31", disable_location: bool = False) -> None:
+    """
+    Set up the sidebar with navigation links and control widgets.
+
+    Args:
+        start_date: Default start date for date picker.
+        end_date: Default end date for date picker.
+        disable_location: Whether to disable location selectors.
+    """
     with st.sidebar:
         # =========================
         #     SIDEBAR NAVIGATION
@@ -185,10 +272,19 @@ def sidebar_setup(start_date : str = "2024-01-01", end_date : str = "2024-12-31"
                 st.error("Invalid date selection.")
 
 
-def el_sidebar(disable_dataset_selection: bool = False, 
-               radio_group: bool = False,
-               disable_group : bool = False,
-               ):
+def el_sidebar(
+    disable_dataset_selection: bool = False,
+    radio_group: bool = False,
+    disable_group: bool = False,
+) -> None:
+    """
+    Set up electricity data selectors in the sidebar.
+
+    Args:
+        disable_dataset_selection: Whether to disable dataset selection (production/consumption).
+        radio_group: Whether to use radio buttons instead of pills for group selection.
+        disable_group: Whether to disable group selection.
+    """
     with st.sidebar:
         dataset = st.selectbox("Select production or consumption data", options=["production","consumption"], index=0, disabled=disable_dataset_selection)
         #year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)

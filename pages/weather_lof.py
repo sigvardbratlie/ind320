@@ -1,17 +1,35 @@
+"""
+Weather Outlier Detection and LOF Analysis Page
+
+Provides tools for detecting outliers in weather data using high-pass filtering
+and Local Outlier Factor (LOF) analysis.
+"""
 import streamlit as st
 import pandas as pd
-from utilities import get_weather_data,extract_coordinates,init,sidebar_setup
+from utilities import get_weather_data, extract_coordinates, init, sidebar_setup
 import plotly.graph_objects as go
 import numpy as np
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
-from scipy.stats import median_abs_deviation,trim_mean
+from scipy.stats import median_abs_deviation, trim_mean
 
 # =========================================
 #          DEFINE FUNCTIONS & SETUP
 # =========================================
 @st.cache_data(ttl=600)
-def lof(df,feature,n_neighbors: int = 20, contamination: float = 0.01):
+def lof(df: pd.DataFrame, feature: str, n_neighbors: int = 20, contamination: float = 0.01) -> go.Figure:
+    """
+    Perform Local Outlier Factor (LOF) analysis on a weather feature.
+
+    Args:
+        df: DataFrame containing weather data.
+        feature: Name of the feature column to analyze.
+        n_neighbors: Number of neighbors for LOF algorithm.
+        contamination: Expected proportion of outliers in the dataset.
+
+    Returns:
+        Plotly scatter plot showing inliers and outliers.
+    """
     lof = LocalOutlierFactor(n_neighbors=n_neighbors, contamination=contamination)
     data = df[[feature]]
     labels = lof.fit_predict(data)
@@ -28,17 +46,38 @@ def lof(df,feature,n_neighbors: int = 20, contamination: float = 0.01):
                       yaxis_title='Precipitation')
     return fig
 
-def calc_highpass(data, cutoff: int):
+def calc_highpass(data: np.ndarray, cutoff: int) -> np.ndarray:
+    """
+    Apply high-pass filter using discrete cosine transform.
+
+    Args:
+        data: Input data array.
+        cutoff: Cutoff frequency for the high-pass filter.
+
+    Returns:
+        Filtered data array.
+    """
     norm = None
     fourier = dct(data, norm=norm)
-    #Plot the temperature as a function of time
     satv = fourier.copy()
     f = np.arange(0, len(satv))
-    satv[f<cutoff] = 0 #high pass filter
+    satv[f < cutoff] = 0  # High-pass filter
     return idct(satv, norm=norm)
 
 @st.cache_data(ttl=600)
-def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float = 2.0):
+def high_pass(df: pd.DataFrame, feature: str, cutoff: int = 50, nstd: float = 2.0) -> go.Figure:
+    """
+    Detect outliers using high-pass filtering and robust statistics.
+
+    Args:
+        df: DataFrame containing weather data.
+        feature: Name of the feature column to analyze.
+        cutoff: Cutoff frequency for high-pass filter.
+        nstd: Number of standard deviations for outlier threshold.
+
+    Returns:
+        Plotly figure showing the data with outliers highlighted.
+    """
 
     temp = df[feature].to_numpy()    
     if df.empty:

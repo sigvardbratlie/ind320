@@ -266,8 +266,19 @@ def compute_fence_height(Qt, fence_type):
     H = (Qt_tonnes / factor) ** (1 / 2.2)
     return H
 
-st.cache_data(ttl=600)
-def snowdrift(df):
+@st.cache_data(ttl=600)
+def snowdrift(df: pd.DataFrame) -> tuple:
+    """
+    Calculate snow drift for all seasons in the data and create a wind rose plot.
+
+    Args:
+        df: DataFrame with weather data including time, temperature, precipitation,
+            wind speed, and wind direction.
+
+    Returns:
+        Tuple of (wind rose plot, fence height DataFrame, yearly results DataFrame,
+        overall average in tonnes/m).
+    """
     # Convert the 'time' column to datetime.
     df['time'] = pd.to_datetime(df['time'])
 

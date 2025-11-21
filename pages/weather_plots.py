@@ -1,7 +1,13 @@
+"""
+Weather Data Visualization Page
+
+Displays weather data with interactive line charts, bar plots, and histograms.
+Users can select plot types, date aggregation, normalization, and variables to visualize.
+"""
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from utilities import get_weather_data,extract_coordinates,init, sidebar_setup
+from utilities import get_weather_data, extract_coordinates, init, sidebar_setup
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -24,9 +30,9 @@ price_area = st.session_state.get("location",{}).get("price_area", "NO1")
 df  = get_weather_data(coordinates=coordinates, dates = st.session_state.dates, set_time_index=True)
 
 
-# === SETUP OPTIONS === 
-start_end = "E" #choosing either end or start with "E" or "S". Defualt "E", no option implemented
-date_agg_map = {"Year":f"Y{start_end}",f"Month":f"M{start_end}",f"Week":f"W",f"Day":f"D"} #a map for choosing the correct label from streamlit radio widget
+# === SETUP OPTIONS ===
+start_end = "E"  # Choose either end or start with "E" or "S". Default "E", no option implemented
+date_agg_map = {"Year": f"Y{start_end}", "Month": f"M{start_end}", "Week": "W", "Day": "D"}  # Map for date aggregation labels
 
 cols = st.columns(2)
 with cols[0]:

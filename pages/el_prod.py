@@ -1,10 +1,16 @@
+"""
+Electricity Production Data Visualization Page
+
+Displays electricity production data with pie charts showing production by group
+and line charts showing production over time with moving averages.
+"""
 import streamlit as st
 import pandas as pd
 import os
 import pymongo
 import plotly.express as px
 import calendar
-from utilities import init, check_mongodb_connection,get_elhub_data,el_sidebar,sidebar_setup
+from utilities import init, check_mongodb_connection, get_elhub_data, el_sidebar, sidebar_setup
 
 
 # =========================================

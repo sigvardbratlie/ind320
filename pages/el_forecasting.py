@@ -1,27 +1,58 @@
-# Imports
+"""
+Electricity Supply/Demand Forecasting Page
+
+SARIMAX forecasting of electricity production/consumption data.
+Allows users to select SARIMAX parameters, exogenous variables, and visualize forecasts.
+"""
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
-from traitlets import default
-from utilities import init, sidebar_setup,get_elhub_data,init_connection,el_sidebar,get_weather_data,extract_coordinates
+from utilities import (
+    init, sidebar_setup, get_elhub_data, init_connection,
+    el_sidebar, get_weather_data, extract_coordinates
+)
 import streamlit as st
 import plotly.graph_objects as go
-from sklearn.metrics import r2_score,mean_squared_error
+from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.impute import SimpleImputer
 
 # =========================================
 #          FUNCTION DEFINITIONS & SETUP
 # =========================================
 @st.cache_data(ttl=600)
-def sarimax_forecast(x_data, y_data, start_idx, end_idx,
-                     ar = 1,
-                    diff = 1,
-                    ma = 1,
-                    seasonal_diff = 1,
-                    seasonal_ma = 1,
-                    seasonal_ar = 1,
-                     seasonal_period=12):
+def sarimax_forecast(
+    x_data: pd.DataFrame,
+    y_data: pd.Series,
+    start_idx: int,
+    end_idx: int,
+    ar: int = 1,
+    diff: int = 1,
+    ma: int = 1,
+    seasonal_diff: int = 1,
+    seasonal_ma: int = 1,
+    seasonal_ar: int = 1,
+    seasonal_period: int = 12
+) -> tuple:
+    """
+    Perform SARIMAX forecasting on electricity data.
+
+    Args:
+        x_data: DataFrame with exogenous variables.
+        y_data: Target time series to forecast.
+        start_idx: Index where training data starts.
+        end_idx: Index where training data ends.
+        ar: Autoregressive order.
+        diff: Differencing order.
+        ma: Moving average order.
+        seasonal_ar: Seasonal autoregressive order.
+        seasonal_diff: Seasonal differencing order.
+        seasonal_ma: Seasonal moving average order.
+        seasonal_period: Length of the seasonal cycle.
+
+    Returns:
+        Tuple of (forecast object, confidence intervals DataFrame, forecast values).
+    """
     mod = sm.tsa.statespace.SARIMAX(
         y_data.iloc[start_idx:end_idx], 
         exog=x_data.iloc[start_idx:end_idx],

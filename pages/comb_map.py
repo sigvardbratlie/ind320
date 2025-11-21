@@ -1,10 +1,20 @@
+"""
+Interactive Map and Snow Drift Analysis Page
+
+Displays an interactive map of Norwegian price areas with electricity data overlays
+and performs snow drift calculations based on meteorological data.
+"""
 import streamlit as st
 import pandas as pd
 import folium
 import json
 from streamlit_folium import st_folium
 import os
-from utilities import init, sidebar_setup,get_elhub_data,init_connection,el_sidebar,get_weather_data,extract_coordinates
+from typing import Optional
+from utilities import (
+    init, sidebar_setup, get_elhub_data, init_connection,
+    el_sidebar, get_weather_data, extract_coordinates
+)
 from Snow_drift import snowdrift
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
@@ -14,7 +24,16 @@ from matplotlib.colors import Normalize
 #          FUNCTION DEFINITIONS
 # =================================
 @st.cache_data(ttl=600)
-def load_geodata(dfg : pd.DataFrame):
+def load_geodata(dfg: pd.DataFrame) -> Optional[dict]:
+    """
+    Load and enrich GeoJSON data with electricity quantity values.
+
+    Args:
+        dfg: DataFrame with electricity data grouped by price area.
+
+    Returns:
+        GeoJSON dictionary with enriched properties, or None if file not found.
+    """
     try:
         with open("data/file.geojson") as f:
             gj = json.load(f)
@@ -36,11 +55,31 @@ def load_geodata(dfg : pd.DataFrame):
 
     return gj
     
-def get_color(value):
+def get_color(value: float) -> str:
+    """
+    Convert a value to a hex color using the current colormap.
+
+    Args:
+        value: Numeric value to convert to color.
+
+    Returns:
+        Hex color string.
+    """
     rgba = colormap(norm(value))
     return '#{:02x}{:02x}{:02x}'.format(int(rgba[0]*255), int(rgba[1]*255), int(rgba[2]*255))
 
-def load_map(gj,coordinates : tuple = None):    
+
+def load_map(gj: dict, coordinates: Optional[tuple[float, float]] = None) -> folium.Map:
+    """
+    Create a Folium map with electricity data overlays.
+
+    Args:
+        gj: GeoJSON data for price areas.
+        coordinates: Tuple of (latitude, longitude) for map center.
+
+    Returns:
+        Folium Map object with choropleth and markers.
+    """    
     m = folium.Map(location=coordinates, zoom_start=4,tiles='CartoDB positron') #create map
 
     folium.Choropleth(
@@ -91,7 +130,13 @@ def load_map(gj,coordinates : tuple = None):
     folium.LayerControl().add_to(m)
     return m
 
-def update_location():
+def update_location() -> None:
+    """
+    Update session state with the selected location from the map click.
+
+    This callback function extracts coordinates and price area from the map
+    interaction and updates the session state.
+    """
     try:
         prop = st.session_state.get("my_map",{}).get("last_active_drawing",{}).get("properties",{})
         coor = st.session_state.get("my_map",{}).get("last_clicked",{})

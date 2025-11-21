@@ -1,8 +1,17 @@
+"""
+Correlation Analysis between Weather and Electricity Data Page
+
+Analyzes sliding window correlation between meteorological variables and electricity data.
+Users can adjust lag, window length, and time position to explore relationships.
+"""
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from utilities import init, sidebar_setup,get_elhub_data,init_connection,el_sidebar,get_weather_data,extract_coordinates
+from utilities import (
+    init, sidebar_setup, get_elhub_data, init_connection,
+    el_sidebar, get_weather_data, extract_coordinates
+)
 from plotly import subplots
 import plotly.graph_objects as go
 

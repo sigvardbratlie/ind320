@@ -1,10 +1,17 @@
+"""
+Electricity and Weather Data Dashboard - Main Page
+
+This is the home page for the dashboard providing access to electricity production,
+consumption, and weather data analysis tools. Users can navigate to different
+analysis pages for exploring data, forecasting, and examining correlations.
+"""
 import streamlit as st
 from utilities import init, sidebar_setup
 import os
 
 init()
 
-st.set_page_config(layout="wide") #setting page conig with layout wide to fill the page
+st.set_page_config(layout="wide")  # Set page config with layout wide to fill the page
 sidebar_setup()
 
 
