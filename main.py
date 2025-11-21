@@ -5,7 +5,7 @@ import os
 init()
 
 st.set_page_config(layout="wide") #setting page conig with layout wide to fill the page
-sidebar_setup("Home")
+sidebar_setup()
 
 
 st.title("Electricity and Weather Data Dashboard ⚡️🌡️")
@@ -22,6 +22,7 @@ with cols[0]:
     )
     st.page_link(page="pages/el_prod.py",label = "⚡️ Production data")
     st.page_link(page="pages/el_stl_spect.py",label = "🔋 STL Decomposition & Spectrogram")
+    st.page_link(page="pages/comb_forecasting_2.py",label = "📈 Supply/Demand Forecasting")
 
 with cols[1]:
     st.subheader("Weather Data analysis 🌡️☁️")

@@ -35,12 +35,13 @@ def check_mongodb_connection():
 
 # Pull data from the collection.
 # Uses st.cache_data to only rerun when the query changes or after 10 min.
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600,show_spinner=False)
 def get_elhub_data(_client,
                    dataset : Literal["production","consumption"]= "production",
                    dates : tuple = (datetime.datetime(2024,1,1),datetime.datetime(2024,12,31)),
                    filter_group : bool = False,
-                   aggregate_group : bool = False
+                   aggregate_group : bool = False,
+                   set_time_index : bool = True,
                    ) -> pd.DataFrame:
     
     if isinstance(dates[0], datetime.date) or isinstance(dates[1], datetime.date):
@@ -57,10 +58,12 @@ def get_elhub_data(_client,
     else:
         raise ValueError("dataset must be either 'production' or 'consumption'")
     
-    data = pd.DataFrame(list(items))
-    data.set_index("starttime", inplace=True)
-    data.sort_index(inplace=True)
-    data.drop(columns=["_id"], inplace=True,errors='ignore')
+    with st.spinner("Fetching data from electricity data from database..."):
+        data = pd.DataFrame(list(items))
+        if set_time_index:
+            data.set_index("starttime", inplace=True)
+            data.sort_index(inplace=True)
+        data.drop(columns=["_id"], inplace=True,errors='ignore')
 
     if filter_group:
         feat_name = st.session_state.group.get("feat_name")
@@ -85,7 +88,7 @@ def mk_request(url: str,params: dict = None):
         return None
 
 #Function for the API download
-@st.cache_data(ttl=7200)
+@st.cache_data(ttl=7200, show_spinner=False)
 def get_weather_data(coordinates,dates : tuple,set_time_index: bool = True) -> pd.DataFrame:
     lat, lon = coordinates
     params = {"latitude" : lat, "longitude": lon, 
@@ -95,15 +98,16 @@ def get_weather_data(coordinates,dates : tuple,set_time_index: bool = True) -> p
               "models" : "era5"
               }
     base_url = "https://archive-api.open-meteo.com/v1/archive?"
-    response = mk_request(base_url,params=params)
-    if response:
-        df_w = pd.DataFrame(response.get("hourly"))
-        df_w["time"] = pd.to_datetime(df_w["time"])
-        if set_time_index:
-            return df_w.set_index("time")
-        return df_w
-    st.warning("No weather data retrieved from API.")
-    return pd.DataFrame()
+    with st.spinner("Fetching weather data from API..."):
+        response = mk_request(base_url,params=params)
+        if response:
+            df_w = pd.DataFrame(response.get("hourly"))
+            df_w["time"] = pd.to_datetime(df_w["time"])
+            if set_time_index:
+                return df_w.set_index("time")
+            return df_w
+        st.warning("No weather data retrieved from API.")
+        return pd.DataFrame()
 
 def geocode(city : str):
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=10&language=en&format=json"
@@ -147,12 +151,14 @@ def sidebar_setup(start_date : str = "2024-01-01", end_date : str = "2024-12-31"
         with st.expander("⚡️ Electricity Data Analysis", expanded=False):
             st.page_link(page="pages/el_prod.py",label = "⚡️ Production data")
             st.page_link(page="pages/el_stl_spect.py",label = "🔋 STL Decomposition & Spectrogram")
+            st.page_link(page="pages/comb_forecasting_2.py",label = "📈 Supply/Demand Forecasting")
         with st.expander("☁️ Weather Data Analysis", expanded=False):
             st.page_link(page="pages/weather_plots.py",label = "🌦️ Weather Data Plots")
             st.page_link(page="pages/weather_lof.py",label = "🌡️ Outlier Detection & LOF Analysis")
         with st.expander("🌡️⚡️ Weather and Electricity Analysis", expanded=False):
             st.page_link(page="pages/comb_map.py",label = "🗺️❄️ Electricity Data Map & snow drift")
-            st.page_link(page="pages/comb_forecasting.py",label = "📈 Electricity Supply/Demand Forecasting")
+            st.page_link(page="pages/comb_forecasting.py",label = "📈 Supply/Demand Forecasting with weather data")
+            
             st.page_link(page="pages/comb_corr.py",label = "🔗 Correlation Analysis between Weather and Electricity Data")
         
         #st.info(infotxt)
