@@ -4,12 +4,8 @@ from dotenv import load_dotenv
 import pandas as pd
 import requests
 import os
-<<<<<<< HEAD
-from datetime import datetime
-=======
 import datetime
 from typing import Literal
->>>>>>> ca4
 load_dotenv()
 
 
@@ -54,22 +50,14 @@ def get_elhub_data(_client,
         raise ValueError("dates[0] must be a datetime.date or datetime.datetime object")
 
     db = _client.elhub
-<<<<<<< HEAD
-    items = db.prod_data.find({"starttime": {"$gte": datetime(2021, 1, 1),
-                                            "$lte": datetime(2021, 12, 31)},
-                                            })
-    items = list(items)  # make hashable for st.cache_data
-    data = pd.DataFrame(items)
-=======
     if dataset == "production":
         items = db.prod_data.find({"starttime": {"$gte": dates[0], "$lte": dates[1]}})
     elif dataset == "consumption":
         items = db.cons_data.find({"starttime": {"$gte": dates[0], "$lte": dates[1]}})
     else:
-        raise ValueError("dataset must be either 'prod' or 'cons'")
+        raise ValueError("dataset must be either 'production' or 'consumption'")
     
     data = pd.DataFrame(list(items))
->>>>>>> ca4
     data.set_index("starttime", inplace=True)
     data.sort_index(inplace=True)
     data.drop(columns=["_id"], inplace=True,errors='ignore')
@@ -128,35 +116,57 @@ def extract_coordinates(city: str):
     return lat, lon
 
 
-def select_price_area():
+def select_price_area(disable_location: bool = False):
     options = ["NO1","NO2","NO3","NO4","NO5"]
-    price_area = st.selectbox("Select price area", options=options, index=options.index(st.session_state.get("location").get("price_area")))
+    price_area = st.selectbox("Select price area", 
+                              options=options, 
+                              index=options.index(st.session_state.get("location").get("price_area")),
+                              disabled=disable_location)
     if price_area:
         st.session_state.location["price_area"] = price_area
 
-def select_city():
+def select_city(disable_location: bool = False):
     locations = {"Oslo" : "NO1", 
                 "Kristiansand" : "NO2", 
                 "Trondheim" : "NO3", 
                 "Tromsø" : "NO4", 
                 "Bergen" : "NO5"}
-    city = st.selectbox("Select city", options=list(locations.keys()), index=None)
+    city = st.selectbox("Select city", options=list(locations.keys()), index=None, disabled=disable_location)
     if city:
         st.session_state.location["city"] = city
         st.session_state.location["price_area"] = locations.get(city)
         coord = extract_coordinates(city)
         st.session_state.location["coordinates"] = coord
                           
-def sidebar_setup(infotxt : str,start_date : str = "2024-01-01", end_date : str = "2024-12-31"):
+def sidebar_setup(start_date : str = "2024-01-01", end_date : str = "2024-12-31",disable_location: bool = False):
     with st.sidebar:
-        st.info(infotxt)
+        # =========================
+        #     SIDEBAR NAVIGATION
+        # =========================
+        st.page_link(page="main.py", label="🏠 Home")
+        with st.expander("⚡️ Electricity Data Analysis", expanded=False):
+            st.page_link(page="pages/el_prod.py",label = "⚡️ Production data")
+            st.page_link(page="pages/el_stl_spect.py",label = "🔋 STL Decomposition & Spectrogram")
+        with st.expander("☁️ Weather Data Analysis", expanded=False):
+            st.page_link(page="pages/weather_plots.py",label = "🌦️ Weather Data Plots")
+            st.page_link(page="pages/weather_lof.py",label = "🌡️ Outlier Detection & LOF Analysis")
+        with st.expander("🌡️⚡️ Weather and Electricity Analysis", expanded=False):
+            st.page_link(page="pages/comb_map.py",label = "🗺️❄️ Electricity Data Map & snow drift")
+            st.page_link(page="pages/comb_forecasting.py",label = "📈 Electricity Supply/Demand Forecasting")
+            st.page_link(page="pages/comb_corr.py",label = "🔗 Correlation Analysis between Weather and Electricity Data")
+        
+        #st.info(infotxt)
+
+        #==========================
+        #     SIDEBAR CONTROLS
+        #==========================
         dates = st.date_input("Select Date Range",
                               value=(start_date, end_date),
                               min_value="2021-01-01",
                               max_value="2024-12-31",
                               )
-        select_price_area()
-        select_city()
+        select_price_area(disable_location=disable_location)
+        select_city(disable_location=disable_location)
 
         if len(dates) == 2 and dates[1]>=dates[0]:
             st.session_state.dates = dates
@@ -170,12 +180,13 @@ def sidebar_setup(infotxt : str,start_date : str = "2024-01-01", end_date : str 
 
 
 def el_sidebar(disable_dataset_selection: bool = False, 
-               radio_group: bool = False):
+               radio_group: bool = False,):
     with st.sidebar:
         dataset = st.selectbox("Select production or consumption data", options=["production","consumption"], index=0, disabled=disable_dataset_selection)
         #year = st.selectbox("Select Year", options=[2019, 2020, 2021, 2022, 2023], index=0)
         prod_group = None
         cons_group = None
+            
         if dataset == "production":
             options = ["hydro","wind","solar","thermal","other"]
             default = st.session_state.group.get("values") if st.session_state.group.get("values") in options else ["hydro","wind","solar","thermal","other"]
@@ -210,6 +221,8 @@ def el_sidebar(disable_dataset_selection: bool = False,
                 st.session_state.group = {"name" : "consumption", 
                                          "feat_name" : "consumptiongroup",
                                          "values" : cons_group}
+                
+        check_mongodb_connection()
             
         
 

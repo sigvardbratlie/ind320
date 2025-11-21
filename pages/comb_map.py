@@ -120,7 +120,7 @@ st.title("Map and Snow Drift Analysis")
 
 init()
 init_connection()
-sidebar_setup("map")
+sidebar_setup()
 el_sidebar()
 
 # =================================
@@ -176,3 +176,9 @@ with cols[1]:
             snow_df.set_index("season", inplace=True)
             snow_df.drop(columns=["Control"], inplace=True)
             st.dataframe(snow_df.T.round(2).style.format("{:,.2f}"))
+
+
+
+with st.expander("Data sources"):
+    st.write(f'Meteo API https://archive-api.open-meteo.com')
+    st.write(f'Elhub API https://api.elhub.no')

@@ -14,7 +14,7 @@ init()
 check_mongodb_connection()
 st.set_page_config(layout="wide")
 st.title("Elhub 🔋⚡️")
-sidebar_setup("Electricity data analysis")
+sidebar_setup()
 el_sidebar(disable_dataset_selection=True)
 
 

@@ -5,11 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
-<<<<<<< HEAD:pages/05_ New B.py
-from scipy.stats import median_abs_deviation
-=======
 from scipy.stats import median_abs_deviation,trim_mean
->>>>>>> ca4:pages/05_🌡️☁️ Outliers & LOF.py
 
 # =========================================
 #          DEFINE FUNCTIONS & SETUP
@@ -49,18 +45,10 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
         st.error("DataFrame is empty.")
         return None
     satv_reconstructed = calc_highpass(temp, cutoff)
-<<<<<<< HEAD:pages/05_ New B.py
-    #mean,std = satv_reconstructed.mean(), satv_reconstructed.std()    
-    MAD = median_abs_deviation(satv_reconstructed)
-    std = 1.4826 * MAD
-
-    outliers = np.where((satv_reconstructed > MAD + nstd*std) | (satv_reconstructed < MAD - nstd*std))
-=======
     MAD = median_abs_deviation(satv_reconstructed)
     std_robust = 1.4826 * MAD
 
     outliers = np.where((satv_reconstructed > MAD + nstd*std_robust) | (satv_reconstructed < MAD - nstd*std_robust))
->>>>>>> ca4:pages/05_🌡️☁️ Outliers & LOF.py
     n_outliers = len(outliers[0])
     df_outliers = df.iloc[outliers]
 
@@ -80,7 +68,7 @@ def high_pass(df : pd.DataFrame,feature : str,cutoff : int = 50 , nstd : float =
 init() #init default states and connections
 st.set_page_config(layout="wide")
 st.title("Outlier Detection and LOF analysis 🌡️☁️")
-sidebar_setup("weather data analysis")
+sidebar_setup()
 
 coordinates = st.session_state.get("location",{}).get("coordinates", None)
 city = st.session_state.get("location",{}).get("city", None)
@@ -137,3 +125,8 @@ with tabs[1]:
     
     fig = lof(df = df , feature = col, n_neighbors=n_neighbors, contamination=contamination)
     st.plotly_chart(fig)
+
+
+
+with st.expander("Data sources"):
+    st.write(f'Meteo API https://archive-api.open-meteo.com')

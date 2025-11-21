@@ -30,9 +30,11 @@ def sarimax_forecast(x_data, y_data, start_idx, end_idx):
     predict_dy_ci = predict_dy.conf_int()
     
     return predict_dy, predict_dy_ci, forecast
+
+st.title("Electricity Supply/Demand Forecasting 📈")
 init()
 init_connection()
-sidebar_setup("map")
+sidebar_setup(disable_location=True)
 el_sidebar()
 
 # =========================================
@@ -50,12 +52,25 @@ df_w = get_weather_data(coordinates=st.session_state.get("location",{}).get("coo
 
 
 df_m = pd.merge(df_el, df_w, left_index=True, right_index=True, how='inner')
-#st.dataframe(df_m.head())
+
+
+resample = st.radio("Resample data", options = ["Hourly", "Daily", "Weekly", "Monthly"], index=2,horizontal=True)
+if resample != "Hourly":
+    if resample == "Daily":
+        df_m = df_m.resample('D').mean()
+    elif resample == "Weekly":
+        df_m = df_m.resample('W').mean()
+    elif resample == "Monthly":
+        df_m = df_m.resample('M').mean()
 
 trainin_time = st.select_slider("Select timeframe for training", options = df_m.index.sort_values().unique(), value=(df_m.index.min(), df_m.index[int(len(df_m)*0.7)]))
 cols = st.columns(2)
 y = cols[0].selectbox("Select target variable for forecasting", options=df_m.columns, index=0)
 x = cols[1].multiselect("Select feature variables for forecasting (Exog)", options=df_m.columns.drop(y), default=df_m.columns.drop(y).tolist())
+
+ci = st.toggle("Show Confidence Intervals", value=False)
+
+
 
 # =========================================
 #          FORECASTING
@@ -81,4 +96,14 @@ fig = go.Figure()
 fig.add_trace(go.Scatter(x=y_data.index, y=y_data, name='Actual'))
 fig.add_trace(go.Scatter(x=y_data.index[start_idx:end_idx], y=y_data.iloc[start_idx:end_idx], name='Training', line=dict(color='blue'), opacity=0.7))
 fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=forecast, name='Forecast', line=dict(dash='dash'), opacity=0.7))
+
+#Confidence intervals
+if ci:
+    fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=predict_dy_ci.iloc[:, 0], name='Lower CI', line=dict(width=0), showlegend=False))                    
+    fig.add_trace(go.Scatter(x=y_data.index[end_idx:], y=predict_dy_ci.iloc[:, 1], name='Upper CI', fill='tonexty', line=dict(width=0)))
+                            
 st.plotly_chart(fig, use_container_width=True)
+
+with st.expander("Data sources"):
+    st.write(f'Meteo API https://archive-api.open-meteo.com')
+    st.write(f'Elhub API https://api.elhub.no')

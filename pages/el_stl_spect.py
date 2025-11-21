@@ -91,13 +91,12 @@ def spectrogram(data : pd.DataFrame,
     return fig
 
 init()
-check_mongodb_connection()
 st.set_page_config(layout="wide")
 st.title("STL Decomposition and Spectrogram 🔋⚡️")
 # =================================
 #           DATA LOADING
 # =================================
-sidebar_setup("Electricity data analysis")
+sidebar_setup()
 el_sidebar(radio_group=True)
 
 coordinates = st.session_state.get("location",{}).get("coordinates", None)
@@ -180,3 +179,6 @@ with tabs[1]:
                       window_length=window_length,
                       overlap=overlap)
     st.plotly_chart(fig, key = "spectrogram_plot")
+
+with st.expander("Data sources"):
+    st.write(f'Elhub API https://api.elhub.no')

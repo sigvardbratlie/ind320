@@ -11,7 +11,7 @@ import plotly.express as px
 init()
 st.set_page_config(layout="wide")
 st.title("Weather Data 🌡️☁️")
-sidebar_setup("weather data analysis")
+sidebar_setup()
 
 
 # =================================
@@ -80,3 +80,7 @@ elif plot_type == "hist":
     x = x if x else df.columns[0] #ensuring x is not None
     fig = px.histogram(df, x=x, nbins=100) #create histogram
     st.plotly_chart(fig) #plot data
+
+
+with st.expander("Data sources"):
+    st.write(f'Meteo API https://archive-api.open-meteo.com')

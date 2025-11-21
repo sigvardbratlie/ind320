@@ -17,7 +17,7 @@ st.title("Correlation between Meteorology and Energy Production")
 
 init()
 init_connection()
-sidebar_setup("map")
+sidebar_setup()
 el_sidebar()
 
 
@@ -97,3 +97,6 @@ fig.update_yaxes(title_text=weather_col, row=2, col=1)
 fig.update_yaxes(title_text="Correlation", row=3, col=1)
 st.plotly_chart(fig)
 
+with st.expander("Data sources"):
+    st.write(f'Meteo API https://archive-api.open-meteo.com')
+    st.write(f'Elhub API https://api.elhub.no')
