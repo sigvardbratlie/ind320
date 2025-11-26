@@ -80,6 +80,3 @@ with cols[1]:
 
 with st.expander("Data sources"):
     st.write(f'Elhub API https://api.elhub.no')
-
-
-st.json(st.session_state)

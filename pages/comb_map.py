@@ -188,6 +188,7 @@ colormap =  mpl.colormaps['viridis']
 # =================================
 #           FOLIUM MAP
 # =================================
+st.info(f"Showing coordinates lat: {coordinates[0]:.3f}, lon: {coordinates[1]:.3f}")
 
 cols = st.columns(2)
 with cols[0]:
