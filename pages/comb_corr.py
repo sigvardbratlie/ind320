@@ -26,7 +26,7 @@ st.title("Correlation between Meteorology and Energy Production")
 
 init()
 init_connection()
-sidebar_setup()
+sidebar_setup(disable_location=True)
 el_sidebar()
 
 
