@@ -254,7 +254,7 @@ def sidebar_setup(start_date: str = "2024-01-01", end_date: str = "2024-12-31", 
         #     SIDEBAR CONTROLS
         #==========================
         dates = st.date_input("Select Date Range",
-                              value=(start_date, end_date),
+                              value=st.session_state.dates if isinstance(st.session_state.dates, tuple) else (start_date, end_date),
                               min_value="2021-01-01",
                               max_value="2024-12-31",
                               )

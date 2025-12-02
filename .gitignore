@@ -5,11 +5,8 @@ build/
 dist/
 wheels/
 *.egg-info
-
-# Virtual environments
+.devcontainer/
 .venv
-
-
 *env
 *.env
 __pycache__/
@@ -22,15 +19,15 @@ __pycache__/
 *.pyd
 *.swp
 *.log
+*.python-version
 
 lectures/
 ia/
-
 *.in
-
 *secrets.toml
-
-.devcontainer/
 
 *.pdf
 *.html
+
+data/open-meteo-subset.csv
+
